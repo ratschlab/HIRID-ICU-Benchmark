@@ -1,0 +1,214 @@
+
+parse_gin_args_endpoints.gin_configs = {
+
+    # ================= INPUT PATHS =======================================================================================================
+
+    # Imputed data
+    "imputed_path": "/cluster/work/grlab/clinical/hirid_public/benchmark/imputed_stage_compat_common",
+
+    # Location of merged data
+    "merged_h5": "/cluster/work/grlab/clinical/hirid_public/benchmark/merged_stage_v1.1.1_aligned_dtype",
+
+    # Location of general data
+    "general_data_table_path": "/cluster/work/grlab/clinical/hirid_public/benchmark/merged_stage_v1.1.1_aligned_dtype/static.parquet",
+
+    # ================= OUTPUT PATHS ======================================================================================================
+
+    # Location to save auxiliary endpoints
+    "endpoint_path": "/cluster/work/grlab/clinical/hirid_public/benchmark/endpoint_stage_compat_common",
+
+    # Logging dir for benchmark endpoints
+    "log_dir": "/cluster/home/mhueser/log_files/icu_score_benchmark",
+
+    # ================= ARGUMENTS =========================================================================================================
+
+    # Endpoint to generate?
+    "endpoint": "benchmark",
+
+    # Split for which endpoints should be generated?
+    "split": "exploration_1",
+
+    # Default random seed
+    "random_state": 2021,
+
+    # HDF compression settings
+    "hdf_comp_level": 5,
+    "hdf_comp_alg": "blosc:lz4",
+
+    # Debugging settings
+    "debug_mode": False,
+    "verbose": False,
+    "small_sample": False,
+
+    # Batch to process
+    "batch_idx": 0,
+
+    # Running mode
+    "run_mode": "INTERACTIVE",
+
+    # Base size of grid in minutes
+    "grid_size_min": 5,
+
+    # Use the revised PaO2 model
+    "pao2_version": "ellis_basic",
+
+    # Merging of small blocks threshold for PF ratio events, in units of 5 minutes
+    "pf_event_merge_threshold": 48,
+
+    # Write endpoint data?
+    "write_endpoint_data": True,
+
+    # Window size to search for circulatory failure
+    "circ_win_size_min": 45,
+
+    # How many windows to require the 2/3 condition on Horowitz index, in units of 5 mins
+    "length_fw_window": 24,
+
+    # Should the individual PaO2/FiO2 estimates be Kernel smoothed?
+    "kernel_smooth_estimate_pao2": True,
+    "kernel_smooth_estimate_fio2": False,
+
+    # Ready extubation criteria violation threshold
+    "ext_ready_violation_threshold": 9,
+
+    # Part of window that need to be ready to extubate
+    "readiness_vote_window_threshold": 0.66666, # 2/3
+
+    # Should the PF ratio estimate be Kernel smoothed?
+    "post_smooth_pf_ratio": False,
+
+    # Mix real PaO2 measurements as well as PaO2 estimates
+    "mix_real_estimated_pao2": True,
+
+    # Ratio of next 48 hours that have to be in RF failure
+    "ext_failure_rf_ratio": 0.5,
+
+    # Simplified ext. failure (only re-intubations)
+    "simplified_ext_failure": True,
+
+    # Interpolation parameter between true and smoothed PaO2 estimates
+    "pao2_comb_alpha": 0.5,
+
+    # Smoothing bandwidth in terms of minutes of the Nadaraya Watson estimator
+    "smoothing_bandwidth": 20,
+
+    # Post-smoothing band-width of the PF ratios
+    "post_smoothing_bandwidth": 20,
+
+    # Size of backward window to find an ABGA
+    "length_ABGA_window": 288,
+
+    # Ambient oxygen level
+    "ambient_fio2": 0.21,
+
+    # Backward window for searching a real suppox measurement
+    "sz_suppox_window": 48,
+
+    # Pre-smooth SpO2 data with a percentile window
+    "presmooth_spo2": True,
+
+    # Central window size and percentile to smooth SpO2 with
+    "spo2_smooth_window_size_mins": 30,
+    "spo2_smooth_percentile": 75,
+
+    # Backward window to search a real FiO2 measurement
+    "sz_fio2_window": 6,
+
+    # Backward window to search a real EtCO2 measurement
+    "sz_etco2_window": 3,
+
+    # Backward window to search a real PaO2 measurement
+    "sz_pao2_window": 6,
+
+    # Maximum hours to forward fill SuppOx
+    "suppox_max_ffill": 12,
+
+    # Forward/backward search windows to search for etCO2 measurement for ventilation detection
+    "etco2_vent_search_bw": 3,
+    "etco2_vent_search_fw": 3,
+
+    # Forward/backward search windows to search for HR measurements for ventilation detection
+    "hr_vent_search_bw": 1,
+    "hr_vent_search_fw": 1,
+
+    # Forward backward search windows to search for PEEP measurements
+    "peep_search_bw": 3,
+    "peep_search_fw": 3,
+    "peep_threshold": 4,
+
+    # How many windows to label unknown at the end of the time series
+    "offset_back_windows": 12,
+
+    # Deletion of small ventilation events
+    "delete_short_vent_events": True,
+
+    # Threshold for short events
+    "short_event_hours": 0.25,
+
+    # Threshold for short event events
+    "short_event_hours_vent_period": 0.75,
+
+    # Merge short gaps between two ventilation states into one
+    "merge_short_vent_gaps": True,
+
+    # Threshold for short gap
+    "short_gap_hours": 0.25,
+
+    # Merge ventilation periods if interrupted by no HR segment
+    "detect_hr_gaps": True,
+
+    # How many hours should be maximally merged if patient has trach for detection of ventilation periods?
+    "trach_gap_hours": 24,
+
+    # Ventilation state voting threshold
+    "vent_vote_threshold": 4,
+
+    # HR gap merging density for ventilation status
+    "vent_hr_density_threshold": 0.5,
+
+    # Extubation failure forward search window in units of 5 minutes
+    "ext_failure_window": 576,
+
+    # Meta-variable ID names
+    "VAR_IDS": {"FiO2": "vm58",
+                "PaO2": "vm140",
+                "PaCO2": "vm139",
+                "HCO3-": "vm135",
+                "Sodium": "vm149",
+                "Potassium": "vm148",
+                "PEEP": "vm59",
+                "ABPs": "vm3",
+                "Urea": "vm155",
+                "Metastases": "vm236",
+                "HemMalignancy": "vm237",
+                "AIDS": "vm239",
+                "Hematocrit": "vm204",
+                "WBC": "vm184",
+                "Temp": "vm2",
+                "SuppOx": "vm23",
+                "SuppFiO2_1": "vm309",
+                "SuppFiO2_2": "vm310",
+                "PressSupport": "vm211", "MinuteVolume": "vm215", "GCS_Antwort":
+                "vm25", "GCS_Motorik": "vm26", "GCS_Augen": "vm27", "SpO2":
+                "vm20", "RRate": "vm22", "SaO2": "vm141", "pH": "vm138", "etCO2":
+                "vm21", "Total_Bilirubin": "vm162", "Platelets": "vm185",
+                "Creatinine": "vm156", "Urine_per_hour": "vm276", "Urine_cum":
+                "vm24", "HR": "vm1", "TV": "vm61", "servoi_mode": "vm60",
+                "Airway": "vm66", "vent_mode": "vm60", "int_state": "vm312",
+                "trach": "vm313",
+                "MAP": ["vm5"], # Circulatory variables
+                "Lactate": ["vm136","vm146"],
+                "Dobutamine": ["pm41"],
+                "Milrinone": ["pm42"],
+                "Levosimendan": ["pm43"],
+                "Theophyllin": ["pm44"],
+                "Norephenephrine": ["pm39"],
+                "Epinephrine": ["pm40"],
+                "Vasopressin": ["pm45"],
+                "Weight": ["vm131"]},
+
+    # Raw variable ID names
+    "RAW_VAR_IDS": {"SuppOx_Main": "v15001555", "SuppOx_Canula": "v15001525", "SuppOx_Mask":
+    "v15001546", "SuppOx_Stellar": "v15004752"},
+
+}

@@ -1,0 +1,30 @@
+name: icu-benchmark
+channels:
+  - pytorch
+  - anaconda
+  - defaults
+  - conda-forge
+  - bioconda
+dependencies:
+  - fdasrsf=2.2.8
+  - lightgbm=3.2.1
+  - ipykernel=5.3.4
+  - ignite=0.4.4
+  - numpy=1.20.2
+  - pandas=1.2.4
+  - pip=21.0.1
+  - pyarrow=3.0.0
+  - pytables=3.6.1
+  - python=3.8.8
+  - pytorch=1.8.1
+  - scikit-learn=0.24.1
+  - tensorboard=2.4.1
+  - torchvision=0.9.1
+  - tqdm=4.60.0
+  - pip:
+     - h5py==3.1.0
+     - gin-config==0.4.0
+     - pytest==6.2.3
+     - pathos==0.2.7
+     - routing-transformer==1.5.1
+     - scikit-fda==0.5
