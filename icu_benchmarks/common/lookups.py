@@ -28,7 +28,7 @@ def read_reference_table(varref_path):
                 '3d': 3 * 24 * 60}
     pharmaref.loc[:, "pharmaactingperiod_min"] = pharmaref.pharmaactingperiod.apply(
         lambda x: enum_ref[x] if type(x) == str else np.nan)
-
+    pharmaref.loc[:, "unitconversionfactor"] = pharmaref.unitconversionfactor.apply(lambda x: float(x) if type(x)==float or "/" not in x else float(x.split("/")[0])/float(x.split("/")[1]))
     varref = varref[varref["type"] != "pharma"].copy()
     varref.drop(varref.index[varref.variableid.isnull()], inplace=True)
     varref.loc[:, "variableid"] = varref.variableid.astype(int)
