@@ -16,7 +16,7 @@ from icu_benchmarks.common.lookups import read_var_ref_table
 from icu_benchmarks.common.processing import map_df
 from icu_benchmarks.common.reference_data import read_static
 from icu_benchmarks.common.resampling import irregular_to_gridded
-from icu_benchmarks.data import imputation_for_endpoints, extended_general_table_generation, endpoint_generation, labels
+from icu_benchmarks.data import imputation_for_endpoints, extended_general_table_generation, endpoint_generation, labels, schemata
 from icu_benchmarks.data.preprocess import to_ml
 from icu_benchmarks.models.train import train_with_gin
 from icu_benchmarks.models.utils import get_bindings_and_params
@@ -269,11 +269,13 @@ def run_build_ml(common_path, labels_path, features_path: Optional[Path], ml_pat
 
     output_ds = Dataset(ml_path)
 
+    output_cols = schemata.cols_ml_stage_v1
+
     if not output_ds.is_done():
         logging.info("Running build_ml")
         output_ds.prepare(single_part=True)
         to_ml(ml_path, parts, labels, features, endpoint_names, df_var_ref,
-              imputation, split_path=split_path,
+              imputation, output_cols, split_path=split_path,
               random_seed=seed)
     else:
         logging.info(f"Data in {ml_path} seem to exist, skipping")

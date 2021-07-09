@@ -1,5 +1,6 @@
 import gc
 
+import logging
 import numpy as np
 import pandas as pd
 import tables
@@ -51,7 +52,28 @@ def gather_stats_over_dataset(parts, to_standard_scale, to_min_max_scale, train_
     return (means, stds), minmax_scaler
 
 
-def to_ml(save_path, parts, labels, features, endpoint_names, df_var_ref, fill_string, split_path=None, random_seed=42):
+def _normalize_cols(df, output_cols):
+    cols_to_drop = [ c for c in set(df.columns).difference(output_cols) if c != constants.PID]
+    if cols_to_drop:
+        logging.warning(f"Dropping columns {cols_to_drop} as they don't appear in output columns")
+    df = df.drop(columns=cols_to_drop)
+
+    cols_to_add = sorted(set(output_cols).difference(df.columns))
+
+    if cols_to_add:
+        logging.warning(f"Adding dummy columns {cols_to_add}")
+        df[cols_to_add] = 0.0
+
+    col_order = [constants.DATETIME] + sorted([c for c in df.columns if c != constants.DATETIME])
+    df = df[col_order]
+
+    cmp_list = list(c for c in df.columns if c != constants.PID)
+    assert cmp_list == output_cols
+
+    return df
+
+
+def to_ml(save_path, parts, labels, features, endpoint_names, df_var_ref, fill_string, output_cols, split_path=None, random_seed=42):
     df_part = pd.read_parquet(parts[0])
     data_cols = df_part.columns
 
@@ -62,6 +84,8 @@ def to_ml(save_path, parts, labels, features, endpoint_names, df_var_ref, fill_s
     split_ids = get_splits(df_pid_and_time, split_path, random_seed)
 
     cat_values, binary_values, to_standard_scale, to_min_max_scale = get_var_types(data_cols, df_var_ref)
+    to_standard_scale = [c for c in to_standard_scale if c in set(output_cols)]
+    to_min_max_scale = [c for c in to_min_max_scale if c in set(output_cols)]
 
     cat_vars_levels = gather_cat_values(common_path, cat_values)
 
@@ -106,9 +130,8 @@ def to_ml(save_path, parts, labels, features, endpoint_names, df_var_ref, fill_s
 
         df = df.replace(np.inf, np.nan).replace(-np.inf, np.nan)
 
-        # reorder columns
-        col_order = [constants.DATETIME] + sorted([c for c in df.columns if c != constants.DATETIME])
-        df = df[col_order]
+        # reorder columns and making sure columns correspond to output_cols
+        df = _normalize_cols(df, output_cols)
 
         split_dfs = {}
         split_labels = {}
@@ -139,6 +162,8 @@ def to_ml(save_path, parts, labels, features, endpoint_names, df_var_ref, fill_s
                 continue
             split_df[to_standard_scale] = (split_df[to_standard_scale].values - means) / stds
             split_df[to_min_max_scale] = minmax_scaler.transform(split_df[to_min_max_scale])
+            split_df.replace(np.inf, np.nan, inplace=True)
+            split_df.replace(-np.inf, np.nan, inplace=True)
 
         split_arrays = {}
         label_arrays = {}
