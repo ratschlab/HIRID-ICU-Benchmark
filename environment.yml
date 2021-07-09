@@ -23,7 +23,8 @@ dependencies:
   - tqdm=4.60.0
   - pip:
      - h5py==3.1.0
-     - gin-config==0.4.0
+     # taking gin from master branch, as latest 0.4.0 release does not include the fix https://github.com/google/gin-config/issues/31
+     - git+https://github.com/google/gin-config.git@cadd4fee4d64cede4e6234dbffd40d9d6de2518d
      - pytest==6.2.3
      - pathos==0.2.7
      - routing-transformer==1.5.1
