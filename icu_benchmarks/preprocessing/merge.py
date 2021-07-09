@@ -150,13 +150,20 @@ def transform_pharma_table_fn(pharma: pd.DataFrame, pharmaref, lst_pmid):
             if np.isin(wide_pharma.columns, cols).sum() == 0:
                 wide_pharma.loc[:, "pm%d" % pmid] = np.nan
             else:
-                wide_pharma.loc[:, "pm%d" % pmid] = wide_pharma[
-                    wide_pharma.columns[np.isin(wide_pharma.columns, cols)]].sum(axis=1)
+                if pharmaref[pharmaref.metavariableid == pmid].unitconversionfactor.notnull().sum() > 0:
+                    unitconverters = [pharmaref[(pharmaref.metavariableid == pmid)&(
+                        pharmaref.pharmaid == int(c[1:]))].iloc[0].unitconversionfactor for c in wide_pharma.columns[
+                             np.isin(wide_pharma.columns, cols)]]
+                    wide_pharma.loc[:, "pm%d" % pmid] = ( wide_pharma[
+                        wide_pharma.columns[np.isin(wide_pharma.columns, cols)]] * unitconverters).sum(axis=1)
+                else:
+                    wide_pharma.loc[:, "pm%d" % pmid] = wide_pharma[
+                        wide_pharma.columns[np.isin(wide_pharma.columns, cols)]].sum(axis=1)
                 wide_pharma.loc[wide_pharma.index[
                                     wide_pharma[wide_pharma.columns[np.isin(wide_pharma.columns, cols)]].notnull().sum(
                                         axis=1) == 0], "pm%d" % pmid] = np.nan
                 wide_pharma.drop(wide_pharma.columns[np.isin(wide_pharma.columns, cols)], axis=1, inplace=True)
-
+                
         binary_pmids = ["pm%d"%x for x in pharmaref[pharmaref.metavariableunit.apply(lambda x: x=="Binary")].metavariableid.values]
         for col in binary_pmids:
             wide_pharma.loc[:,col] = wide_pharma[col].apply(lambda x: x if np.isnan(x) else float(x!=0))
