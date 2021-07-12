@@ -74,7 +74,6 @@ def train_common(log_dir, overwrite=False, load_weights=False, model=gin.REQUIRE
     
     if not load_weights:
         os.makedirs(log_dir)
-
     dataset = dataset_fn(data_path, split='train')
     val_dataset = dataset_fn(data_path, split='val')
 
@@ -84,9 +83,14 @@ def train_common(log_dir, overwrite=False, load_weights=False, model=gin.REQUIRE
 
     model.set_logdir(log_dir)
     save_config_file(log_dir)  # We save the operative config before and also after training
+    
     if load_weights:
         if os.path.isfile(os.path.join(log_dir, 'model.torch')):
             model.load_weights(os.path.join(log_dir, 'model.torch'))
+        elif os.path.isfile(os.path.join(log_dir, 'model.txt')):
+            model.load_weights(os.path.join(log_dir, 'model.txt'))
+        elif os.path.isfile(os.path.join(log_dir, 'model.joblib')):
+            model.load_weights(os.path.join(log_dir, 'model.joblib'))
         else:
             raise Exception("No weights to load at path : {}".format(os.path.join(log_dir, 'model.torch')))
         do_test = True
@@ -102,6 +106,5 @@ def train_common(log_dir, overwrite=False, load_weights=False, model=gin.REQUIRE
         test_dataset.set_scaler(dataset.scaler)
         weight = dataset.get_balance()
         model.test(test_dataset, weight)
-
+        del test_dataset.h5_loader.lookup_table
     save_config_file(log_dir)
-    del test_dataset.h5_loader.lookup_table

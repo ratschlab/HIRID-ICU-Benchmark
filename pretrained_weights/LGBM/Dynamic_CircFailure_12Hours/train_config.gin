@@ -1,0 +1,70 @@
+import gin.torch.external_configurables
+import icu_benchmarks.data.loader
+import icu_benchmarks.models.encoders
+import icu_benchmarks.models.utils
+import icu_benchmarks.models.wrappers
+
+# Macros:
+# ==============================================================================
+BAGGING_FREQ = 1
+DEPTH = 4
+EPOCHS = 100000
+LOSS_WEIGHT = None
+MAXLEN = 2016
+MIN_CHILD_LEAF = 1000
+NUM_LEAVES = 16
+RES = 1
+RES_LAB = 1
+SUBSAMPLE_DATA = 0.66
+SUBSAMPLE_FEAT = 0.66
+TASK = 'Dynamic_CircFailure_12Hours'
+
+# Parameters for ICUVariableLengthDataset:
+# ==============================================================================
+ICUVariableLengthDataset.maxlen = %MAXLEN
+ICUVariableLengthDataset.scale_label = False
+
+# Parameters for ICUVariableLengthLoaderTables:
+# ==============================================================================
+ICUVariableLengthLoaderTables.data_resampling = %RES
+ICUVariableLengthLoaderTables.label_resampling = %RES_LAB
+ICUVariableLengthLoaderTables.on_RAM = True
+ICUVariableLengthLoaderTables.shuffle = True
+ICUVariableLengthLoaderTables.task = %TASK
+ICUVariableLengthLoaderTables.use_feat = False
+
+# Parameters for LGBMClassifier:
+# ==============================================================================
+LGBMClassifier.boosting_type = 'gbdt'
+LGBMClassifier.class_weight = None
+LGBMClassifier.colsample_bytree = %SUBSAMPLE_FEAT
+LGBMClassifier.importance_type = 'split'
+LGBMClassifier.learning_rate = 0.1
+LGBMClassifier.max_depth = %DEPTH
+LGBMClassifier.min_child_samples = %MIN_CHILD_LEAF
+LGBMClassifier.min_child_weight = 0.001
+LGBMClassifier.min_split_gain = 0.0
+LGBMClassifier.n_estimators = %EPOCHS
+LGBMClassifier.n_jobs = -1
+LGBMClassifier.num_leaves = %NUM_LEAVES
+LGBMClassifier.objective = None
+LGBMClassifier.random_state = None
+LGBMClassifier.reg_alpha = 0.0
+LGBMClassifier.reg_lambda = 0.0
+LGBMClassifier.silent = True
+LGBMClassifier.subsample = %SUBSAMPLE_DATA
+LGBMClassifier.subsample_for_bin = 200000
+LGBMClassifier.subsample_freq = %BAGGING_FREQ
+
+# Parameters for MLWrapper:
+# ==============================================================================
+MLWrapper.model = @LGBMClassifier()
+
+# Parameters for train_common:
+# ==============================================================================
+train_common.data_path = \
+    '/cluster/work/grlab/clinical/hirid_public/benchmark/pipeline_runs/run_latest/ml_stage/ml_stage.h5'
+train_common.dataset_fn = @ICUVariableLengthDataset
+train_common.do_test = True
+train_common.model = @MLWrapper()
+train_common.weight = %LOSS_WEIGHT
