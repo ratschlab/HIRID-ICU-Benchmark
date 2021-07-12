@@ -21,7 +21,7 @@ LOSS_WEIGHT = None
 # Train params
 train_common.model = @DLWrapper()
 train_common.dataset_fn = @ICUVariableLengthDataset
-train_common.data_path = PATH_TO_DL # TODO(User) update this
+train_common.data_path = '/cluster/work/grlab/clinical/hirid_public/benchmark/pipeline_runs/run_202106031725/dl_stage/dl_stage.h5' #TODO REMOVE 
 train_common.weight = %LOSS_WEIGHT
 train_common.do_test = True
 

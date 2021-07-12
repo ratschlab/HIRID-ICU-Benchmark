@@ -73,10 +73,8 @@ def build_parser():
                                       default='ffill', required=False, type=str,
                                       help="Type of imputation. Default: 'ffill' ")
 
-    parser_train = subparsers.add_parser('train', help='train',
-                                         parents=[parent_parser])
 
-    model_arguments = parser_train.add_argument_group('Model arguments')
+    model_arguments = parent_parser.add_argument_group('Model arguments')
     model_arguments.add_argument('-l', '--logdir', dest="logdir",
                                  required=False, type=str,
                                  help="Path to the log directory ")
@@ -173,6 +171,11 @@ def build_parser():
                                  nargs='+', type=str,
                                  help="Path to the gin train config file.")
 
+    parser_evaluate = subparsers.add_parser('evaluate', help='evaluate',
+                                         parents=[parent_parser])
+
+    parser_train = subparsers.add_parser('train', help='train',
+                                         parents=[parent_parser])
     return parser
 
 
@@ -359,13 +362,18 @@ def main(my_args=tuple(sys.argv[1:])):
                                    split_path=args.split_path,
                                    seed=args.seed, nr_workers=args.nr_workers)
 
-    if args.command == 'train':
+    if args.command in ['train', 'evaluate']:
+        load_weights = args.command == 'evaluate'
+        reproducible = str(args.reproducible) == 'True'
         if not isinstance(args.seed, list):
             seeds = [args.seed]
         else:
             seeds = args.seed
-        gin_bindings, log_dir = get_bindings_and_params(args)
-        reproducible = str(args.reproducible) == 'True'
+        if not load_weights:
+            gin_bindings, log_dir = get_bindings_and_params(args)
+        else :
+            gin_bindings, _ = get_bindings_and_params(args)
+            log_dir = args.logdir
         if args.rs:
             reproducible = False
             max_attempt = 0
@@ -383,16 +391,23 @@ def main(my_args=tuple(sys.argv[1:])):
                     'TASK = ' + "'" + str(task) + "'"]
                 log_dir_task = os.path.join(log_dir, str(task))
                 for seed in seeds:
-                    log_dir_seed = os.path.join(log_dir_task, str(seed))
+                    if not load_weights:
+                        log_dir_seed = os.path.join(log_dir_task, str(seed))
+                    else:
+                        log_dir_seed = log_dir_task
                     train_with_gin(model_dir=log_dir_seed,
                                    overwrite=args.overwrite,
+                                   load_weights=load_weights,
                                    gin_config_files=args.config,
                                    gin_bindings=gin_bindings_task,
                                    seed=seed, reproducible=reproducible)
         else:
             for seed in seeds:
-                log_dir_seed = os.path.join(log_dir, str(seed))
-                train_with_gin(model_dir=log_dir_seed, overwrite=args.overwrite,
+                if not load_weights:
+                    log_dir_seed = os.path.join(log_dir, str(seed))
+                train_with_gin(model_dir=log_dir_seed, 
+                               overwrite=args.overwrite,
+                               load_weights=load_weights,
                                gin_config_files=args.config,
                                gin_bindings=gin_bindings, seed=seed, reproducible=reproducible)
 

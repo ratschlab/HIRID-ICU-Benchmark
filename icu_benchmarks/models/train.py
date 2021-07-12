@@ -11,6 +11,7 @@ from icu_benchmarks.models.utils import save_config_file
 
 def train_with_gin(model_dir=None,
                    overwrite=False,
+                   load_weights=False,
                    gin_config_files=None,
                    gin_bindings=None,
                    seed=1234,
@@ -43,13 +44,13 @@ def train_with_gin(model_dir=None,
     if gin_bindings is None:
         gin_bindings = []
     gin.parse_config_files_and_bindings(gin_config_files, gin_bindings)
-    train_common(model_dir, overwrite)
+    train_common(model_dir, overwrite, load_weights)
     gin.clear_config()
 
 
 
 @gin.configurable('train_common')
-def train_common(log_dir, overwrite=False, model=gin.REQUIRED, dataset_fn=gin.REQUIRED,
+def train_common(log_dir, overwrite=False, load_weights=False, model=gin.REQUIRED, dataset_fn=gin.REQUIRED,
                  data_path=gin.REQUIRED, weight=None, do_test=False):
     """
 
@@ -65,13 +66,14 @@ def train_common(log_dir, overwrite=False, model=gin.REQUIRED, dataset_fn=gin.RE
     :return:
     """
 
-    if os.path.isdir(log_dir):
+    if os.path.isdir(log_dir) and not load_weights:
         if overwrite:
             shutil.rmtree(log_dir)
         else:
             raise ValueError("Directory already exists and overwrite is False.")
-
-    os.makedirs(log_dir)
+    
+    if not load_weights:
+        os.makedirs(log_dir)
 
     dataset = dataset_fn(data_path, split='train')
     val_dataset = dataset_fn(data_path, split='val')
@@ -82,8 +84,16 @@ def train_common(log_dir, overwrite=False, model=gin.REQUIRED, dataset_fn=gin.RE
 
     model.set_logdir(log_dir)
     save_config_file(log_dir)  # We save the operative config before and also after training
+    if load_weights:
+        if os.path.isfile(os.path.join(log_dir, 'model.torch')):
+            model.load_weights(os.path.join(log_dir, 'model.torch'))
+        else:
+            raise Exception("No weights to load at path : {}".format(os.path.join(log_dir, 'model.torch')))
+        do_test = True
 
-    model.train(dataset, val_dataset, weight)
+    else:
+        model.train(dataset, val_dataset, weight)
+
     del dataset.h5_loader.lookup_table
     del val_dataset.h5_loader.lookup_table
 
