@@ -1,7 +1,41 @@
-# ICU Benchmark Project
+# HiRID-ICU-Benchmark
 
-This project aim is to build a benchmark for ICU related tasks.
+This repository contains the needed ressource to build HIRID-ICU-Benchmark dataset which manuscript can be found [here](https://openreview.net/forum?id=SnC9rUeqiqd).
 
+We first introduce key resources to better understande the structure and specificity of the data.
+We then detail the different features of our pipeline and how to use them as shown in the below figure.
+
+
+![Figure](docs/figures/Detailed-pipe-benchmark.png)
+
+## Key Ressources
+We build our work on previously released data, models and metrics. To help users which might be unfamiliar with them we provide in this section some related documentation. 
+
+### HiRID data
+We based our benchmark on a recent dataset in intensive care called HiRID.
+It is a freely accessible critical care dataset containing data from more than 33,000 patient admissions to the Department of Intensive Care Medicine, Bern University Hospital, Switzerland (ICU) from January 2008 to June 2016.
+It was first released as part of the [circulatory Early Warning Score] project. 
+
+First, you can find some more details about the demographics of the patients of the data in **Appendix A: HiRID Dataset Details**. However, for more detailed about the original data it's better to refer to its latest [documentation](https://hirid.intensivecare.ai/) .
+More in details the documentation contains the following sections of interest:
+- [Getting started](https://hirid.intensivecare.ai/Getting-started-dc773c10ba494af4a94057eb223c2e83) This first section points to a jupyter notebook to familiarize yourself with the data.
+- [Data details](https://hirid.intensivecare.ai/Data-details-1ff9c433b9894904b1dbd7652be4b11c) This second section contains a description of the variables existing in the dataset. To complete this section you can refer to our [varref.tsv](preprocessing/resources/varref.tsv) which we use to build the common version of the data.
+- [Structure of the published data](https://hirid.intensivecare.ai/Data-details-1ff9c433b9894904b1dbd7652be4b11c) This final section contains details about the structure of the raw data you will have to download and place in `hirid-data-root` folder (see "Run Pre-Processing").
+
+### Models
+As for the data, in this benchmark we compare existing machine learning models that commonly used for multivariate time-series data.
+For these models implementation we use `pytorch`, for the deep learning models, `lightgbm` for the boosted tree approaches, and `sklearn` for the logistic regression model and metrics. 
+In the deep learning models we used the following models: 
+- [Long Short-term Memory (LSTM)](https://ieeexplore.ieee.org/document/818041): The most commonly used type of Recurrent Neural Networks for long sequences.
+- [Gated Recurrent Unit (GRU)](https://arxiv.org/abs/1406.1078) : A extension to LSTM which showed improvement over them in the context of polyphonic music modeling and speech signal modeling ([paper](https://arxiv.org/abs/1412.3555)).
+- [Temporal Convolutional Networks (TCN)](https://arxiv.org/pdf/1803.01271 ): 1D convolution approach to sequence data. By using dilated convolution to extend the receptive field of the network it has shown great performance on long-term dependencies.
+- [Transformers](https://papers.nips.cc/paper/2017/file/3f5ee243547dee91fbd053c1c4a845aa-Paper.pdf): The most common Attention based approach.
+
+### Metrics
+In our benchmark we use different metrics depending on the tasks, however all the implementation are from `sklearn` which documents well their usage:
+- Binary Classification: Because our tasks are all highly imbalanced, we use both ROC and PR Area Under the Curve using [sklearn.metrics.roc_auc_score](https://scikit-learn.org/stable/modules/generated/sklearn.metrics.roc_auc_score.html) and [sklearn.metrics.average_precision_score](https://scikit-learn.org/stable/modules/generated/sklearn.metrics.average_precision_score.html#sklearn.metrics.average_precision_score)
+- Multiclass Classification: As here also the `Phenotyping` task is imbalanced, we compare model with [Balanced Accuracy](https://ong-home.my/papers/brodersen10post-balacc.pdf) using [sklearn.metrics.balanced_accuracy_score](https://scikit-learn.org/stable/modules/generated/sklearn.metrics.balanced_accuracy_score.html#sklearn-metrics-balanced-accuracy-score)
+- Regression : For regression we prefer the Mean Absolute Error (MAE) as our metric of choice with [sklearn.metrics.mean_absolute_error](https://scikit-learn.org/stable/modules/generated/sklearn.metrics.mean_absolute_error.html)
 ## Setup
 
 In the following we assume a Linux installation, however, other platforms may also work
@@ -23,7 +57,6 @@ In the following we assume a Linux installation, however, other platforms may al
 3. unpack the files into the same directory using e.g. `cat *.tar.gz | tar zxvf - -i`
 
 
-
 ## How to Run
 
 ### Run Prepocessing
@@ -42,7 +75,7 @@ The above command requires about 6GB of RAM per core and in total approximately 
 
 
 ### Run Training
-
+#### Custom training
 To run a custom training you should, activate the conda environment using `conda activate icu-benchmark`. Then
 ```
 icu-benchmarks train -c [path to gin config] \
@@ -51,15 +84,51 @@ icu-benchmarks train -c [path to gin config] \
                      -sd [seed number] 
 ```
 Task name should be one of the following : `Mortality_At24Hours, Dynamic_CircFailure_12Hours, Dynamic_RespFailure_12Hours, Dynamic_UrineOutput_2Hours_Reg, Phenotyping_APACHEGroup` or `Remaining_LOS_Reg`.\\
-To see an example of `gin-config` file please refer to `./configs/`. You can also check directly the [gin-config documentation](https://github.com/google/gin-config).\\
+To see an example of `gin-config` file please refer to `./configs/`. You can also check directly the [gin-config documentation](https://github.com/google/gin-config).
+this will create a new directory `[path to logdir]/[task name]/[seed number]/` containing:
+- `val_metrics.pkl` and `test_metrics.pkl`: Pickle files with model's performance respectively validation and test sets.
+- `train_config.gin`: The so-called "operative" config allowing the save the configuration used at training. 
+- `model.(torch/txt/joblib)` : The weights of the model that was trained. The extension depends model type.
+- `tensorboard/`: (Optional) Directory with tensorboard logs. One can do `tensorboard --logdir ./tensorboard` to visualize
+them,
 
-Tu run the experiments from the paper you we build pre-defined scripts located in `./run_scripts`. For instance, you can run the following command to reproduce GRU baseline on Mortatility task:
+#### Reproduce experiments from the paper
+If you are interested in reproducing the experiments from the paper, you can directly use the pre-built scripts in `./run_scripts/`.
+For instance, you can run the following command to reproduce GRU baseline on Mortatility task:
 ```
 sh run_script/baselines/Mortality_At24Hours/GRU.sh
 ```
+As for custom trainig you will create a directory with the files mentioned above. 
+The pre-built scripts are divided in four categories as follows:
+- `baselines` : This folder contains scripts to reproduce the main benchmark experiment. Each of them will run a model with the best
+parameters we found using a random search for 10 identical seeds. 
+- `ablations`: This folder contains the scripts to reproduce the ablations studies on horizon, sequence length and weighting.
+- `random-search` : This scripts will run each one instance of a random search. This means if you want a k-run search you need to run it k times. 
+- `pretrained` : This last types of scripts allows to evaluate pretrain models from our experiments. We discuss them more in detail in the next section
 
+### Run Evaluation of Pretrained Models
+#### Custom Evaluation
+As for training a model you can evaluate any previously trained model using the `evaluate` as follows:
 
+```
+icu-benchmarks evaluate -c [path to gin config] \
+                        -l [path to logdir] \
+                        -t [task name] \
+```
+This command will evaluate the model at `[path to logdir]/[task name]/model.(torch/txt/joblib)` on the test set of the dataset provided in the config. Results are saved to `test_metrics.pkl` file. 
 
+#### Evaluate Manuscript models
+To either check the pre-processing pipeline outcome or simply reproduce the paper results we provided weights for all models of the benchmark experiment in `files/pretrained_weights`.
+Please note that the data items in this repository utilize the [git-lfs](https://git-lfs.github.com/) framework. 
+You need to install `git-lfs` on your system to be able to download and access the pretrained weights.
+
+Once this is done you can evaluate any network by running :
+
+```
+sh ./run_scripts/pretrained/[task name]/[model name].sh
+```
+
+Note that we provide only one set of weights for each model which correspond to the median performance among the 10 runs reported in the manuscript.
 
 
 
