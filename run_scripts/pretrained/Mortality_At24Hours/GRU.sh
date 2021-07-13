@@ -1,7 +1,7 @@
 source activate icu-benchmark
 python -m icu_benchmarks.run evaluate \
-			     -c configs/hirid/Classification/GRU.gin \
-                             -l pretrained_weights/GRU \
+                             -c configs/hirid/Classification/GRU.gin \
+                             -l files/pretrained_weights/GRU/ \
                              -t Mortality_At24Hours \
                              --maxlen 288 \
                              -o True \
@@ -9,4 +9,5 @@ python -m icu_benchmarks.run evaluate \
                              --hidden 64 \
                              --do 0.0 \
                              --depth 2 \
+
 
