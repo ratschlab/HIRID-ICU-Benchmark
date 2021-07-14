@@ -49,8 +49,6 @@ def impute_dynamic_df(patient_df, pid=None, df_static=None, typical_weight_dict=
         assumes that the data-frame contains a time-stamp column, and the data-frame is sorted along the first
         axis in non-decreasing order with respect to the timestamp column. Pass the <pid> of the patient stay
         as additional information'''
-    df_static["patientid"] = df_static.index
-    df_static.reset_index(drop=True, inplace=True)
     static_table = df_static[df_static["patientid"] == pid]
     max_grid_length_secs = configs["max_grid_length_days"] * 24 * 3600
 

@@ -129,7 +129,45 @@ sh ./run_scripts/pretrained/[task name]/[model name].sh
 Note that we provide only one set of weights for each model which corresponds to the median performance among the 10 runs reported in the manuscript.
 
 ### Run Pipeline on Simulated Data
-COMING SOON 
+
+We provide a small toy data set to test the processing pipeline and to get a
+rough impression how to original data looks like. Since there are restrictions
+accessing the HiRID data set, instead of publishing a small subset of the
+data, we generated a very simple simulated dataset based on some statistics aggregated from
+the full HiRID dataset. It is however not useful for data exploration or
+training, as for example the values are sampled independently from each other and
+any structure between variables in the original data set is not represented.
+
+The example data set is provided in [files/fake_data](files/fake_data). Similar as with the original data, the preprocessing pipeline can be run using
+```
+icu-benchmarks preprocess --hirid-data-root files/fake_data --work-dir fake_data_wdir --var-ref-path preprocessing/resources/varref.tsv
+```
+
+Note, that for this fake dataset some models cannot be successfully trained, as the training instances are degenerate. In case you'd
+like to explore the training part of our pipeline, you could work with pretrained models as described above.
+
+#### Dataset Generation
+
+The data set was generated using the following command:
+
+```
+python -m icu_benchmarks.synthetic_data.generate_simple_fake_data files/dataset_stats/ files/fake_data/ --var-ref-path preprocessing/resources/varref.tsv
+```
+
+The script [generate_simple_fake_data.py](icu_benchmarks/synthetic_data/generate_simple_fake_data.py) generates fake observation and pharma
+records in the following way: It first generates a series of timestamps where
+the difference between consecutive timestamps is sampled from the distribution of
+timestamp differences in the original dataset. Then, for every timestamp, a
+variableid/pharmaid is selected at random also according to the distribution in
+the original dataset. Finally, we sample the values of a variable from a
+gaussian with mean and standard deviation as observed in the original data. We
+then clip the values to fit the lower and upperbound as given in the varref table.
+
+The necessary statistics for sampling can be found in [files/dataset_stats](files/dataset_stats). They were generated
+using
+```
+python -m icu_benchmarks.synthetic_data.collect_stats [Path to the decompressed parquet data directory as published on physionet] files/dataset_stats/
+```
 
 ## License
 You can find the license for the original HiRID data [here](https://physionet.org/content/hirid/view-license/1.1.1/).

@@ -244,7 +244,7 @@ def merge_tables(observation_tables_path: Path, pharma_path: Path, general_data_
     pharma_tables = pharma_ds.list_parts()
 
     output_ds = Dataset(output)
-    output_ds.prepare(single_part=len(observed_tables) == 1)
+    output_ds.prepare(single_part=False)
 
     assert len(observed_tables) == len(pharma_tables)
     assert [f.name for f in observed_tables] == [f.name for f in pharma_tables]

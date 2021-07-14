@@ -1,9 +1,7 @@
 import os
 import random
 import shutil
-import torch
-import gin
-import numpy as np
+import sys
 
 from icu_benchmarks.data.loader import *
 from icu_benchmarks.models.utils import save_config_file
@@ -96,7 +94,14 @@ def train_common(log_dir, overwrite=False, load_weights=False, model=gin.REQUIRE
         do_test = True
 
     else:
-        model.train(dataset, val_dataset, weight)
+        try:
+            model.train(dataset, val_dataset, weight)
+        except ValueError as e:
+            logging.exception(e)
+            if 'Only one class present' in str(e):
+                logging.error("There seems to be a problem with the evaluation metric. In case you are attempting to train "
+                              "with the synthetic data, this is expected behaviour")
+            sys.exit(1)
 
     del dataset.h5_loader.lookup_table
     del val_dataset.h5_loader.lookup_table
