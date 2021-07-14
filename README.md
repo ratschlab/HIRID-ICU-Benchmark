@@ -128,4 +128,9 @@ sh ./run_scripts/pretrained/[task name]/[model name].sh
 
 Note that we provide only one set of weights for each model which corresponds to the median performance among the 10 runs reported in the manuscript.
 
+### Run Pipeline on Simulated Data
+COMING SOON 
 
+## License
+You can find the license for the original HiRID data [here](https://physionet.org/content/hirid/view-license/1.1.1/).
+For our code we license it under a [MIT License](LICENSE)
