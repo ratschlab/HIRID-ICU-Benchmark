@@ -214,6 +214,7 @@ class DLWrapper(object):
         self.load_weights(os.path.join(self.logdir, 'model.torch'))  # We load back the best iteration
 
     def test(self, dataset, weight):
+        self.set_metrics()
         test_loader = DataLoader(dataset, batch_size=1, shuffle=False, num_workers=self.n_worker,
                                  pin_memory=self.pin_memory)
         if isinstance(weight, list):
@@ -223,6 +224,9 @@ class DLWrapper(object):
         with open(os.path.join(self.logdir, 'test_metrics.pkl'), 'wb') as f:
             test_metrics['loss'] = test_loss
             pickle.dump(test_metrics, f)
+        for key, value in test_metrics.items():
+            if isinstance(value,float):
+                logging.info('Test {} :  {}'.format(key,value))
 
     def evaluate(self, eval_loader, metrics, weight):
         self.encoder.eval()
@@ -260,7 +264,10 @@ class MLWrapper(object):
 
     def set_metrics(self, labels):
         if len(np.unique(labels)) == 2:
-            self.output_transform = lambda x: x[:, 1]
+            if isinstance(self.model, lightgbm.basic.Booster):
+                self.output_transform = lambda x: x
+            else:
+                self.output_transform = lambda x: x[:, 1]
             self.label_transform = lambda x: x
 
             self.metrics = {'PR': average_precision_score, 'AUC': roc_auc_score}
@@ -339,15 +346,14 @@ class MLWrapper(object):
 
     def test(self, dataset, weight):
         test_rep, test_label = dataset.get_data_and_labels()
-
-        if "MAE" in self.metrics.keys():
+        self.set_metrics(test_label)
+        if "MAE" in self.metrics.keys() or isinstance(self.model, lightgbm.basic.Booster): # If we reload a LGBM classifier
             test_pred = self.model.predict(test_rep)
         else:
             test_pred = self.model.predict_proba(test_rep)
         test_string = 'Test Results :'
         test_values = []
         test_metric_results = {}
-
         for name, metric in self.metrics.items():
             test_metric_results[name] = metric(self.label_transform(test_label),
                                                self.output_transform(test_pred))
