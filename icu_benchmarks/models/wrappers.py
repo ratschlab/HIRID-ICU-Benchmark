@@ -35,10 +35,12 @@ gin.config.external_configurable(LogisticRegression)
 class DLWrapper(object):
     def __init__(self, encoder=gin.REQUIRED, loss=gin.REQUIRED, optimizer_fn=gin.REQUIRED):
         if torch.cuda.is_available():
+            logging.info('Model will be trained using GPU Hardware')
             device = torch.device('cuda')
             self.pin_memory = True
             self.n_worker = 1
         else:
+            logging.info('Model will be trained using CPU Hardware. This should be considerably slower')
             self.pin_memory = False
             self.n_worker = 16
             device = torch.device('cpu')
@@ -146,8 +148,12 @@ class DLWrapper(object):
 
         self.set_metrics()
         metrics = self.metrics
-
+        
         torch.autograd.set_detect_anomaly(True)  # Check for any nans in gradients
+        if not train_dataset.h5_loader.on_RAM:
+            self.n_worker = 1
+            logging.info('Data is not loaded to RAM, thus number of worker has been set to 1')
+
         train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True, num_workers=self.n_worker,
                                   pin_memory=self.pin_memory, prefetch_factor=2)
         val_loader = DataLoader(val_dataset, batch_size=batch_size, shuffle=False, num_workers=self.n_worker,
