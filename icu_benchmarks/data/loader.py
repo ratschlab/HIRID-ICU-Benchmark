@@ -146,6 +146,7 @@ class ICUVariableLengthLoaderTables(object):
             self.task_idx = task
             self.task = None
 
+        self.on_RAM = on_RAM
         # Processing the data part
         if self.data_h5.__contains__('data'):
             if on_RAM:  # Faster but comsumes more RAM
