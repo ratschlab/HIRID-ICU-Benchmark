@@ -16,9 +16,9 @@ It was first released as part of the [circulatory Early Warning Score](https://w
 
 First, you can find some more details about the demographics of the patients of the data in **Appendix A: HiRID Dataset Details**. However, for more details about the original data, it's better to refer to its latest [documentation](https://hirid.intensivecare.ai/) .
 More in detail the documentation contains the following sections of interest:
-- [Getting started](https://hirid.intensivecare.ai/Getting-started-dc773c10ba494af4a94057eb223c2e83) This first section points to a jupyter notebook to familiarize yourself with the data.
-- [Data details](https://hirid.intensivecare.ai/Data-details-1ff9c433b9894904b1dbd7652be4b11c) This second section contains a description of the variables existing in the dataset. To complete this section you can refer to our [varref.tsv](preprocessing/resources/varref.tsv) which we use to build the common version of the data.
-- [Structure of the published data](https://hirid.intensivecare.ai/Data-details-1ff9c433b9894904b1dbd7652be4b11c) This final section contains details about the structure of the raw data you will have to download and place in `hirid-data-root` folder (see "Run Pre-Processing").
+- [Getting started](https://hirid.intensivecare.ai/getting-started) This first section points to a jupyter notebook to familiarize yourself with the data.
+- [Data details](https://hirid.intensivecare.ai/data-details) This second section contains a description of the variables existing in the dataset. To complete this section you can refer to our [varref.tsv](preprocessing/resources/varref.tsv) which we use to build the common version of the data.
+- [Structure of the published data](https://hirid.intensivecare.ai/structure-of-the-published-data) This final section contains details about the structure of the raw data you will have to download and place in `hirid-data-root` folder (see "Run Pre-Processing").
 
 ### Models
 As for the data, in this benchmark, we compare existing machine learning models that are commonly used for multivariate time-series data.
