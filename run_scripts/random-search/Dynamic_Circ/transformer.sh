@@ -1,5 +1,4 @@
 source activate icu-benchmark
-
 python -m icu_benchmarks.run train \
                              -c configs/hirid/Classification/transformer.gin \
                              -l logs/random_search/dynamic_circ/transformer/run \
@@ -11,6 +10,6 @@ python -m icu_benchmarks.run train \
                              --hidden 32 64 128 \
                              --do 0.0 0.1 0.2 0.3 0.4 \
                              --do_att 0.0 0.1 0.2 0.3 0.4 \
-                             --depth 1 \
+                             --depth 1 2 3\
                              --heads 1 2 4 \
 
