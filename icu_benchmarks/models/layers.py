@@ -10,27 +10,29 @@ from torch.nn.utils import weight_norm
 def parrallel_recomb(q_t, kv_t, att_type='all', local_context=3, bin_size=None):
     """ Return mask of attention matrix (ts_q, ts_kv) """
     with torch.no_grad():
-        q_t[q_t == 0.0] = float('inf')  # We want padded to attend to everyone to avoid any nan.
-        kv_t[kv_t == 0.0] = float('inf')  # We want no one to attend the padded values
+        q_t[q_t == -1.0] = float('inf')  # We want padded to attend to everyone to avoid any nan.
+        kv_t[kv_t == -1.0] = float('inf')  # We want no one to attend the padded values
 
         if bin_size is not None:  # General case where we use unaligned timesteps.
-            q_t = torch.ceil(q_t / bin_size)
-            q_t -= q_t[:, 0:1]
-            kv_t = torch.ceil(kv_t / bin_size)
-            kv_t -= kv_t[:, 0:1]
+            q_t = q_t / bin_size
+            starts_q = q_t[:, 0:1].clone()  # Needed because of Memory allocation issue
+            q_t -= starts_q
+            kv_t = kv_t / bin_size
+            starts_kv = kv_t[:, 0:1].clone()  # Needed because of Memory allocation issue
+            kv_t -= starts_kv
 
         bs, ts_q = q_t.size()
         _, ts_kv = kv_t.size()
         q_t_rep = q_t.view(bs, ts_q, 1).repeat(1, 1, ts_kv)
         kv_t_rep = kv_t.view(bs, 1, ts_kv).repeat(1, ts_q, 1)
-        diff_mask = (q_t_rep - kv_t_rep).cuda()
-
+        diff_mask = (q_t_rep - kv_t_rep).to(q_t_rep.device)
         if att_type == 'all':
             return (diff_mask >= 0).float()
         if att_type == 'local':
-            return ((diff_mask >= 0) * (diff_mask <= local_context)).float()
+            return ((diff_mask >= 0) * (diff_mask <= local_context) + (diff_mask == float('inf'))).float()
         if att_type == 'strided':
-            return ((diff_mask >= 0) * (diff_mask % local_context == 0)).float()
+            return ((diff_mask >= 0) * (torch.floor(diff_mask) % local_context == 0) + (
+                    diff_mask == float('inf'))).float()
 
 
 class PositionalEncoding(nn.Module):
@@ -127,8 +129,8 @@ class SelfAttention(nn.Module):
                 if self.mask_aggregation == 'union':
                     mask_tensor = 0
                     for att_type in self.att_type:
-                        mask_tensor += parrallel_recomb(torch.arange(1, n + 1, dtype=torch.float).reshape(1, -1),
-                                                        torch.arange(1, n + 1, dtype=torch.float).reshape(1, -1),
+                        mask_tensor += parrallel_recomb(torch.arange(1, n + 1, dtype=torch.float,  device=dot.device).reshape(1, -1),
+                                                        torch.arange(1, n + 1, dtype=torch.float,  device=dot.device).reshape(1, -1),
                                                         att_type,
                                                         self.local_context)[0]
                     mask_tensor = torch.clamp(mask_tensor, 0, 1)
@@ -140,8 +142,8 @@ class SelfAttention(nn.Module):
 
                     dot_list = list(torch.split(dot, dot.shape[0] // len(self.att_type), dim=0))
                     for i, att_type in enumerate(self.att_type):
-                        mask_tensor = parrallel_recomb(torch.arange(1, n + 1, dtype=torch.float).reshape(1, -1),
-                                                       torch.arange(1, n + 1, dtype=torch.float).reshape(1, -1),
+                        mask_tensor = parrallel_recomb(torch.arange(1, n + 1, dtype=torch.float,  device=dot.device).reshape(1, -1),
+                                                       torch.arange(1, n + 1, dtype=torch.float,  device=dot.device).reshape(1, -1),
                                                        att_type,
                                                        self.local_context)[0]
 
@@ -149,8 +151,8 @@ class SelfAttention(nn.Module):
                                                   torch.tensor(float('-inf')).cuda()).view(*dot_list[i].shape)
                     dot = torch.cat(dot_list, dim=0)
             else:  # Full causal masking
-                mask_tensor = parrallel_recomb(torch.arange(1, n + 1, dtype=torch.float).reshape(1, -1),
-                                               torch.arange(1, n + 1, dtype=torch.float).reshape(1, -1),
+                mask_tensor = parrallel_recomb(torch.arange(1, n + 1, dtype=torch.float,  device=dot.device).reshape(1, -1),
+                                               torch.arange(1, n + 1, dtype=torch.float,  device=dot.device).reshape(1, -1),
                                                self.att_type,
                                                self.local_context)[0]
                 dot = torch.where(mask_tensor.bool(),
