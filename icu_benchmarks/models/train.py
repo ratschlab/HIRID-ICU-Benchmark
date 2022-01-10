@@ -65,7 +65,7 @@ def train_common(log_dir, overwrite=False, load_weights=False, model=gin.REQUIRE
     """
 
     if os.path.isdir(log_dir) and not load_weights:
-        if overwrite:
+        if overwrite or (not os.path.isfile(os.path.join(log_dir, 'test_metrics.pkl'))):
             shutil.rmtree(log_dir)
         else:
             raise ValueError("Directory already exists and overwrite is False.")
