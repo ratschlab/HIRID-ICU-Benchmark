@@ -33,7 +33,7 @@ def transition_to_failure(ann_col, lhours=None, rhours=None):
         if np.isnan(ann_col[jdx]) or ann_col[jdx] == 1:
             out_arr[jdx] = np.nan
         elif ann_col[jdx] == 0:
-            fut_arr = ann_col[min(ann_col.size, jdx + lhours * 12):min(ann_col.size, rhours * 12)]
+            fut_arr = ann_col[min(ann_col.size, jdx + lhours * 12):min(ann_col.size, jdx + rhours * 12)]
             if (fut_arr == 1.0).any():
                 out_arr[jdx] = 1
     return out_arr
