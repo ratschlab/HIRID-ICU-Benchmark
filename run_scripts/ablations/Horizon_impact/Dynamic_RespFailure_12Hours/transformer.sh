@@ -6,10 +6,10 @@ python -m icu_benchmarks.run train \
                              -o True \
                              -lr 1e-4\
                              -bs 8\
-                             --hidden 128 \
-                             --do 0.3 \
-                             --do_att 0.2 \
-                             --depth 1 \
+                             --hidden 64 \
+                             --do 0.0 \
+                             --do_att 0.3 \
+                             --depth 2 \
                              --heads 1 \
                              --horizon 12 36 72 144 288 576 1152 2016 \
                              -sd 1111 2222 3333 4444 5555 \
