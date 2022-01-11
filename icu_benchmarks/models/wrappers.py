@@ -297,7 +297,7 @@ class MLWrapper(object):
 
     @gin.configurable(module='MLWrapper')
     def train(self, train_dataset, val_dataset, weight,
-              patience=gin.REQUIRED, save_weights=False):
+              patience=gin.REQUIRED, save_weights=True):
 
         train_rep, train_label = train_dataset.get_data_and_labels()
         val_rep, val_label = val_dataset.get_data_and_labels()
