@@ -5,6 +5,6 @@ python -m icu_benchmarks.run evaluate \
                              -t Dynamic_RespFailure_12Hours\
                              -o True \
                              --depth 6 \
-                             --subsample-feat 1.00 \
-                             --subsample-data 1.00 \
+                             --subsample-feat 0.33 \
+                             --subsample-data 0.66 \
 

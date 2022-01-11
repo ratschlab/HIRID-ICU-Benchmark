@@ -5,6 +5,6 @@ python -m icu_benchmarks.run evaluate \
                              -t Dynamic_CircFailure_12Hours\
                              -o True \
                              --depth 4 \
-                             --subsample-feat 1.00 \
-                             --subsample-data 0.66 \
+                             --subsample-feat 0.33 \
+                             --subsample-data 0.33 \
 
