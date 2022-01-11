@@ -4,6 +4,7 @@ from pathlib import Path
 
 SUCCESS_FILE_NAME = "_SUCCESS"
 
+
 class Dataset:
     """
     A dataset can consist of a directory of part files following a regex or a single file representing a single part

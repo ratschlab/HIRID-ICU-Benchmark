@@ -6,6 +6,8 @@ import pandas as pd
 
 from icu_benchmarks.common.constants import PID
 
+STEPS_PER_HOURS = 60
+
 
 def read_general_table(path: Path):
     logging.info(f"Reading general table from {path}")
@@ -24,11 +26,13 @@ def read_reference_table(varref_path):
     varref = pd.read_csv(varref_path, sep="\t", encoding='cp1252')
 
     pharmaref = varref[varref["type"] == "pharma"].rename(columns={"variableid": "pharmaid"})
-    enum_ref = {'very short': 5, 'short': 1 * 60, '4h': 4 * 60, '6h': 6 * 60, '12h': 12 * 60, '24h': 24 * 60,
-                '3d': 3 * 24 * 60}
+    enum_ref = {'very short': int(STEPS_PER_HOURS / 12), 'short': 1 * STEPS_PER_HOURS, '4h': 4 * STEPS_PER_HOURS,
+                '6h': 6 * STEPS_PER_HOURS, '12h': 12 * STEPS_PER_HOURS, '24h': 24 * STEPS_PER_HOURS,
+                '3d': 72 * STEPS_PER_HOURS}
     pharmaref.loc[:, "pharmaactingperiod_min"] = pharmaref.pharmaactingperiod.apply(
         lambda x: enum_ref[x] if type(x) == str else np.nan)
-    pharmaref.loc[:, "unitconversionfactor"] = pharmaref.unitconversionfactor.apply(lambda x: float(x) if type(x)==float or "/" not in x else float(x.split("/")[0])/float(x.split("/")[1]))
+    check_func = lambda x: float(x) if type(x)==float or "/" not in x else float(x.split("/")[0])/float(x.split("/")[1])
+    pharmaref.loc[:, "unitconversionfactor"] = pharmaref.unitconversionfactor.apply(check_func)
     varref = varref[varref["type"] != "pharma"].copy()
     varref.drop(varref.index[varref.variableid.isnull()], inplace=True)
     varref.loc[:, "variableid"] = varref.variableid.astype(int)

@@ -18,7 +18,7 @@ def map_and_combine_patient_dfs(map_pat_fns, part_lists, reading_fns, combine_fn
         for (path, read_fn, map_fn) in zip(paths_same_part, reading_fns, map_pat_fns):
             df = read_fn(path)
 
-            df_mapped = { pid: map_fn(df_pat) for (pid, df_pat) in df.groupby(constants.PID)}
+            df_mapped = {pid: map_fn(df_pat) for (pid, df_pat) in df.groupby(constants.PID)}
             dfs_mapped.append(df_mapped)
 
         df_ret = combine_fn(dfs_mapped)

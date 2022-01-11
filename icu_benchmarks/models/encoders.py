@@ -2,7 +2,8 @@ import gin
 import numpy as np
 import torch
 import torch.nn as nn
-from icu_benchmarks.models.layers import TransformerBlock, LocalBlock, parrallel_recomb, TemporalBlock, SparseBlock, PositionalEncoding
+from icu_benchmarks.models.layers import TransformerBlock, LocalBlock, parrallel_recomb,\
+    TemporalBlock, SparseBlock, PositionalEncoding
 
 
 @gin.configurable('LSTM')
@@ -80,8 +81,8 @@ class Transformer(nn.Module):
         x = self.tblocks(x)
         pred = self.logit(x)
 
-
         return pred
+
 
 @gin.configurable('LocalTransformer')
 class LocalTransformer(nn.Module):

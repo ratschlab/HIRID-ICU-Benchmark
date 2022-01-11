@@ -4,6 +4,7 @@ import pandas as pd
 from icu_benchmarks.common import constants
 import gc
 
+
 def irregular_to_gridded(df, df_static, df_var_ref, freq_string='5T'):
     df = resample_df(df, freq_string)
     gc.collect()
@@ -51,7 +52,7 @@ def resample_df(df, freq_string='5T'):
 
     df_part = pd.concat(dfs_pat).reset_index(drop=True)
     df_part[constants.PID] = df_part[constants.PID].astype('int64')
-    df_part = df_part[[constants.PID] + [ c for c in df_part.columns if c != constants.PID]]
+    df_part = df_part[[constants.PID] + [c for c in df_part.columns if c != constants.PID]]
 
     df_part[constants.DATETIME] /= np.timedelta64(60, 's')
     return df_part

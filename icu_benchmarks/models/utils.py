@@ -45,7 +45,6 @@ def get_bindings_and_params(args):
         gin_bindings += ['RES_LAB = ' + str(res_lab)]
         log_dir = os.path.join(log_dir, 'pre-res_' + str(res_lab))
 
-
     if args.horizon:
         if args.rs:
             horizon = args.horizon[np.random.randint(len(args.horizon))]

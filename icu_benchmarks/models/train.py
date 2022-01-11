@@ -2,6 +2,7 @@ import os
 import random
 import shutil
 import sys
+import gin
 
 from icu_benchmarks.data.loader import *
 from icu_benchmarks.models.utils import save_config_file
@@ -51,19 +52,8 @@ def train_with_gin(model_dir=None,
 def train_common(log_dir, overwrite=False, load_weights=False, model=gin.REQUIRED, dataset_fn=gin.REQUIRED,
                  data_path=gin.REQUIRED, weight=None, do_test=False):
     """
-
-    :param log_dir:
-    :param overwrite:
-    :param model:
-    :param dataset_fn:
-    :param data_path:
-    :param epochs:
-    :param batch_size:
-    :param weight:
-    :param do_test:
-    :return:
+    Common wrapper to train all benchmarked models.
     """
-
     if os.path.isdir(log_dir) and not load_weights:
         if overwrite or (not os.path.isfile(os.path.join(log_dir, 'test_metrics.pkl'))):
             shutil.rmtree(log_dir)
@@ -99,8 +89,8 @@ def train_common(log_dir, overwrite=False, load_weights=False, model=gin.REQUIRE
         except ValueError as e:
             logging.exception(e)
             if 'Only one class present' in str(e):
-                logging.error("There seems to be a problem with the evaluation metric. In case you are attempting to train "
-                              "with the synthetic data, this is expected behaviour")
+                logging.error("There seems to be a problem with the evaluation metric. In case you are attempting "
+                              "to train with the synthetic data, this is expected behaviour")
             sys.exit(1)
 
     del dataset.h5_loader.lookup_table

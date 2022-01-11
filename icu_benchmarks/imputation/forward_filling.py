@@ -1,13 +1,13 @@
-'''
+"""
 Imputation routines for different variable types in the ICU Bern data-set, we distinguish between the
 cases 'event' (endpoint), measured variable and pharma variable which have to be treated differently.
-'''
+"""
 
 import numpy as np
 
 
 def value_empty(size, default_val, dtype=None):
-    ''' Returns a vector filled with elements of a specific value'''
+    """ Returns a vector filled with elements of a specific value"""
 
     if dtype is not None:
         tmp_arr = np.empty(size, dtype=dtype)
@@ -19,21 +19,21 @@ def value_empty(size, default_val, dtype=None):
 
 
 def empty_nan(sz):
-    ''' Returns an empty NAN vector of specified size'''
+    """ Returns an empty NAN vector of specified size"""
     arr = np.empty(sz)
     arr[:] = np.nan
     return arr
 
 
-''' ONLY FORWARD FILLING imputation schema ========================================================================================================='''
+""" ONLY FORWARD FILLING imputation schema"""
 
 
 def impute_forward_fill_simple(raw_ts, raw_values, timegrid_pred, global_mean, grid_period, fill_interval_secs=np.inf,
                                var_type=None, variable_id=None, weight_imputed_col=None, static_height=None,
                                personal_bmi=None):
-    '''
-    Simple forward filling algorithm used in the respiratory failure project
-    '''
+    """
+    Simple forward filling algorithm used in the respiratory failure endpoints
+    """
 
     pred_values = np.zeros_like(timegrid_pred)
     cum_count_ms = np.zeros_like(timegrid_pred)
@@ -48,8 +48,6 @@ def impute_forward_fill_simple(raw_ts, raw_values, timegrid_pred, global_mean, g
             cum_real_meas += 1
             last_real_ms = input_ts
             input_ts += 1
-
-        # POSTCONDITION: input_ts=raw_ts.size OR raw_ts[input_ts]>ts : Past the time grid point
 
         # No value has been observed before the current time-grid point. We have to fill in using the global mean
         if input_ts == 0:
@@ -84,4 +82,3 @@ def impute_forward_fill_simple(raw_ts, raw_values, timegrid_pred, global_mean, g
     return (pred_values, cum_count_ms, time_to_last_ms)
 
 
-''' =========================================================================================================================='''

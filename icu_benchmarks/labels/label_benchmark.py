@@ -1,4 +1,4 @@
-''' Label generation from the benchmark endpoints'''
+""" Label generation from the benchmark endpoints"""
 
 import gc
 import glob
@@ -15,19 +15,19 @@ from icu_benchmarks.common.constants import PID
 
 
 def load_pickle(fpath):
-    ''' Given a file path pointing to a pickle file, yields the object pickled in this file'''
+    """ Given a file path pointing to a pickle file, yields the object pickled in this file"""
     with open(fpath, 'rb') as fp:
         return pickle.load(fp)
 
 
 def delete_if_exist(path):
-    ''' Deletes a path if it exists on the file-system'''
+    """ Deletes a path if it exists on the file-system"""
     if os.path.exists(path):
         os.remove(path)
 
 
 def create_dir_if_not_exist(path, recursive=False):
-    ''' Creates a directory if it does not yet exist in the file system'''
+    """ Creates a directory if it does not yet exist in the file system"""
     if not os.path.exists(path):
         if recursive:
             os.makedirs(path)
@@ -40,14 +40,14 @@ def is_df_sorted(df, colname):
 
 
 def convolve_hr(in_arr, hr_status_arr):
-    ''' Convolve an array with a HR status arr'''
+    """ Convolve an array with a HR status arr"""
     out_arr = np.copy(in_arr)
     out_arr[hr_status_arr == 0] = np.nan
     return out_arr
 
 
 def gen_label(df_pat, df_endpoint, mort_status=None, apache_group=None, pid=None, configs=None):
-    ''' Transform input data-frames to new data-frame with labels'''
+    """Transform input data-frames to new data-frame with labels"""
     abs_time_col = df_pat[configs["abs_datetime_key"]]
     rel_time_col = df_pat[configs["rel_datetime_key"]]
     patient_col = df_pat[configs["patient_id_key"]]
@@ -137,7 +137,7 @@ def gen_label(df_pat, df_endpoint, mort_status=None, apache_group=None, pid=None
 
 
 def label_gen_benchmark(configs):
-    '''Creation of base labels directly defined on the imputed data / endpoints'''
+    """Creation of base labels directly defined on the imputed data / endpoints"""
     label_base_dir = configs["label_dir"]
     endpoint_base_dir = configs["endpoint_dir"]
     imputed_base_dir = configs["imputed_dir"]
