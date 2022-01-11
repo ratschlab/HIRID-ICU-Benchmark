@@ -3,7 +3,6 @@ python -m icu_benchmarks.run train \
                              -c configs/hirid/Classification/LocalTransformer.gin \
                              -l logs/hirid/ablation/Horizon/LocalTransformer/ \
                              -t Dynamic_RespFailure_12Hours\
-                             -o True \
                              -lr 1e-4\
                              -bs 8\
                              --hidden 64 \
