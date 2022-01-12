@@ -134,10 +134,6 @@ def perf_regression_model(X_list, y_list, aux_list, configs=None):
     lmodel.fit(X_train_std, y_train)
     pred_y_test = lmodel.predict(X_test_std)
 
-    # MH Never used
-    pred_pf_ratio_test = pred_y_test / fio2_test
-    true_pf_ratio_test = y_test / fio2_test
-
     mae_test = skmetrics.mean_absolute_error(y_test, pred_y_test)
     logging.info("Mean absolute error in test set: {:.3f}".format(mae_test))
 
@@ -251,16 +247,12 @@ def merge_short_vent_gaps(vent_status_arr, short_gap_hours):
     """ Merge short gaps in the ventilation status array"""
     in_gap = False
     gap_length = 0
-    # MH Never used
-    before_gap_status = np.nan
 
     for idx in range(len(vent_status_arr)):
         cur_state = vent_status_arr[idx]
         if in_gap and (cur_state == 0.0 or np.isnan(cur_state)):
             gap_length += 5
         elif not in_gap and (cur_state == 0.0 or np.isnan(cur_state)):
-            if idx > 0:
-                before_gap_status = vent_status_arr[idx - 1]
             in_gap = True
             in_gap_idx = idx
             gap_length = 5
@@ -562,21 +554,8 @@ def conservative_state(state1, state2):
 
 def endpoint_gen_benchmark(configs):
     var_map = configs["VAR_IDS"]
-    # MH Never used
-    raw_var_map = configs["RAW_VAR_IDS"]
     sz_window = configs["length_fw_window"]
     abga_window = configs["length_ABGA_window"]
-    # MH Never used
-    missing_unm = 0
-
-    # MH Never used
-    # Threshold statistics
-    stat_counts_ready_and_failure = 0
-    stat_counts_ready_and_success = 0
-    stat_counts_nready_and_failure = 0
-    stat_counts_nready_and_success = 0
-    stat_counts_ready_nextube = 0
-    stat_counts_nready_nextube = 0
 
     imputed_f = configs["imputed_path"]
     merged_f = os.path.join(configs["merged_h5"])
@@ -602,22 +581,10 @@ def endpoint_gen_benchmark(configs):
     pids = list(df_batch.patientid.unique())
 
     logging.info("Number of patients in batch: {}".format(len(df_batch.patientid.unique())))
-    # MH Never used
-    first_write = True
     out_fp = os.path.join(out_folder, "batch_{}.parquet".format(batch_id))
 
     event_count = {"FIO2_AVAILABLE": 0, "SUPPOX_NO_MEAS_12_HOURS_LIMIT": 0, "SUPPOX_MAIN_VAR": 0, "SUPPOX_HIGH_FLOW": 0,
                    "SUPPOX_NO_FILL_STOP": 0}
-
-    # MH Never used
-    readiness_ext_count = 0
-    not_ready_ext_count = 0
-    readiness_and_extubated_cnt = 0
-    extubated_cnt = 0
-    df_static = pd.read_parquet(configs["general_data_table_path"])
-    X_reg_collect = []
-    y_reg_collect = []
-    aux_reg_collect = []
 
     out_dfs = []
 
@@ -632,8 +599,6 @@ def endpoint_gen_benchmark(configs):
         df_merged_pid.sort_values(by="datetime", inplace=True)
 
         suppox_val = {}
-        # MH Never used
-        suppox_ts = {}
 
         # Main route of SuppOx
         df_suppox_red_async = df_merged_pid[[var_map["SuppOx"], "datetime"]]
@@ -650,13 +615,6 @@ def endpoint_gen_benchmark(configs):
         pao2_col = np.array(df_pid[var_map["PaO2"]])
         etco2_col = np.array(df_pid[var_map["etCO2"]])
 
-        # MH Never used
-        paco2_col = np.array(df_pid[var_map["PaCO2"]])
-        gcs_a_col = np.array(df_pid[var_map["GCS_Antwort"]])
-        gcs_m_col = np.array(df_pid[var_map["GCS_Motorik"]])
-        gcs_aug_col = np.array(df_pid[var_map["GCS_Augen"]])
-        weight_col = np.array(df_pid[var_map["Weight"][0]])
-
         noreph_col = np.array(df_pid[var_map["Norephenephrine"][0]])
         epineph_col = np.array(df_pid[var_map["Epinephrine"][0]])
         vaso_col = np.array(df_pid[var_map["Vasopressin"][0]])
@@ -669,18 +627,8 @@ def endpoint_gen_benchmark(configs):
         lactate_col = np.array(df_pid[var_map["Lactate"][0]])
         peep_col = np.array(df_pid[var_map["PEEP"]])
 
-        # MH Never used
         # Heartrate
-        hr_col = np.array(df_pid[var_map["HR"]])
         hr_meas_cnt = np.array(df_pid["{}_IMPUTED_STATUS_CUM_COUNT".format(var_map["HR"])])
-
-        # MH Never used
-        # Temperature
-        temp_col = np.array(df_pid[var_map["Temp"]])
-        temp_meas_cnt = np.array(df_pid["{}_IMPUTED_STATUS_CUM_COUNT".format(var_map["Temp"])])
-
-        # MH Never used
-        rrate_col = np.array(df_pid[var_map["RRate"]])
 
         tv_col = np.array(df_pid[var_map["TV"]])
         map_col = np.array(df_pid[var_map["MAP"][0]])
@@ -694,20 +642,13 @@ def endpoint_gen_benchmark(configs):
         if configs["presmooth_spo2"]:
             spo2_col = percentile_smooth(spo2_col, configs["spo2_smooth_percentile"],
                                          configs["spo2_smooth_window_size_mins"])
-        # MH Never used
-        sao2_col = np.array(df_pid[var_map["SaO2"]])
-        ph_col = np.array(df_pid[var_map["pH"]])
-
+            
         fio2_meas_cnt = np.array(df_pid["{}_IMPUTED_STATUS_CUM_COUNT".format(var_map["FiO2"])])
         pao2_meas_cnt = np.array(df_pid["{}_IMPUTED_STATUS_CUM_COUNT".format(var_map["PaO2"])])
         etco2_meas_cnt = np.array(df_pid["{}_IMPUTED_STATUS_CUM_COUNT".format(var_map["etCO2"])])
         peep_meas_cnt = np.array(df_pid["{}_IMPUTED_STATUS_CUM_COUNT".format(var_map["PEEP"])])
         hr_meas_cnt = np.array(df_pid["{}_IMPUTED_STATUS_CUM_COUNT".format(var_map["HR"])])
         spo2_meas_cnt = np.array(df_pid["{}_IMPUTED_STATUS_CUM_COUNT".format(var_map["SpO2"])])
-
-        # MH Never used
-        sao2_meas_cnt = np.array(df_pid["{}_IMPUTED_STATUS_CUM_COUNT".format(var_map["SaO2"])])
-        ph_meas_cnt = np.array(df_pid["{}_IMPUTED_STATUS_CUM_COUNT".format(var_map["pH"])])
 
         abs_dtime_arr = np.array(df_pid["datetime"])
         event_status_arr = np.zeros(shape=(fio2_col.size), dtype="<S10")
@@ -748,9 +689,6 @@ def endpoint_gen_benchmark(configs):
         # ======================== VENTILATION ================================================================================================
 
         # Label each point in the 30 minute window with ventilation
-
-        # MH Never used
-        in_vent_event = False
 
         for jdx in range(0, len(ratio_arr)):
             low_vent_idx = max(0, jdx - configs["peep_search_bw"])
@@ -809,13 +747,7 @@ def endpoint_gen_benchmark(configs):
             vent_votes_arr[jdx] = vote_score
 
             if vote_score >= configs["vent_vote_threshold"]:
-                # MH Never used
-                in_vent_event = True
-
                 vent_status_arr[jdx] = 1
-            else:
-                # MH Never used
-                in_vent_event = False
 
             if peep_meas_win:
                 peep_status_arr[jdx] = 1
@@ -897,9 +829,6 @@ def endpoint_gen_benchmark(configs):
             bw_etco2_meas = etco2_meas_cnt[max(0, jdx - configs["sz_etco2_window"]):jdx + 1]
             fio2_meas = bw_fio2_meas[-1] - bw_fio2_meas[0] > 0
 
-            # MH Never used
-            etco2_meas = bw_etco2_meas[-1] - bw_etco2_meas[0] > 0
-
             mode_group_est = vent_mode_col[jdx]
 
             # FiO2 is measured since beginning of stay and EtCO2 was measured, we use FiO2 (indefinite forward filling)
@@ -961,9 +890,6 @@ def endpoint_gen_benchmark(configs):
             # Compute the individual components of the Horowitz index
             pao2_est_arr[jdx] = pao2_estimate
             fio2_est_arr[jdx] = fio2_val
-
-        # MH Never used
-        pao2_est_arr_orig = np.copy(pao2_est_arr)
 
         # Smooth individual components of the P/F ratio estimate
         if configs["kernel_smooth_estimate_pao2"]:
