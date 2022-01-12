@@ -134,10 +134,6 @@ def perf_regression_model(X_list, y_list, aux_list, configs=None):
     lmodel.fit(X_train_std, y_train)
     pred_y_test = lmodel.predict(X_test_std)
 
-    # MH Never used
-    pred_pf_ratio_test = pred_y_test / fio2_test
-    true_pf_ratio_test = y_test / fio2_test
-
     mae_test = skmetrics.mean_absolute_error(y_test, pred_y_test)
     logging.info("Mean absolute error in test set: {:.3f}".format(mae_test))
 
@@ -251,16 +247,12 @@ def merge_short_vent_gaps(vent_status_arr, short_gap_hours):
     """ Merge short gaps in the ventilation status array"""
     in_gap = False
     gap_length = 0
-    # MH Never used
-    before_gap_status = np.nan
 
     for idx in range(len(vent_status_arr)):
         cur_state = vent_status_arr[idx]
         if in_gap and (cur_state == 0.0 or np.isnan(cur_state)):
             gap_length += 5
         elif not in_gap and (cur_state == 0.0 or np.isnan(cur_state)):
-            if idx > 0:
-                before_gap_status = vent_status_arr[idx - 1]
             in_gap = True
             in_gap_idx = idx
             gap_length = 5
@@ -509,6 +501,33 @@ def collect_regression_data(spo2_col, spo2_meas_cnt, pao2_col, pao2_meas_cnt, fi
     else:
         return (None, None, None)
 
+def gen_circ_failure_ep(event_status_arr=None, map_col=None, lactate_col=None, milri_col=None, dobut_col=None,
+                        levosi_col=None, theo_col=None,
+                        noreph_col=None, epineph_col=None, vaso_col=None):
+    ''' Circulatory failure endpoint definition'''
+    circ_status_arr = np.zeros_like(map_col)
+
+    # Computation of the circulatory failure toy version of the endpoint
+    for jdx in range(0, len(event_status_arr)):
+        map_subarr = map_col[max(0, jdx - 12):min(jdx + 12, len(event_status_arr))]
+        lact_subarr = lactate_col[max(0, jdx - 12):min(jdx + 12, len(event_status_arr))]
+        milri_subarr = milri_col[max(0, jdx - 12):min(jdx + 12, len(event_status_arr))]
+        dobut_subarr = dobut_col[max(0, jdx - 12):min(jdx + 12, len(event_status_arr))]
+        levosi_subarr = levosi_col[max(0, jdx - 12):min(jdx + 12, len(event_status_arr))]
+        theo_subarr = theo_col[max(0, jdx - 12):min(jdx + 12, len(event_status_arr))]
+        noreph_subarr = noreph_col[max(0, jdx - 12):min(jdx + 12, len(event_status_arr))]
+        epineph_subarr = epineph_col[max(0, jdx - 12):min(jdx + 12, len(event_status_arr))]
+        vaso_subarr = vaso_col[max(0, jdx - 12):min(jdx + 12, len(event_status_arr))]
+        map_crit_arr = ((map_subarr < 65) | (milri_subarr > 0) | (dobut_subarr > 0) | (levosi_subarr > 0) | (
+                theo_subarr > 0) | (noreph_subarr > 0) | \
+                        (epineph_subarr > 0) | (vaso_subarr > 0))
+        lact_crit_arr = (lact_subarr > 2)
+        if np.sum(map_crit_arr) >= 2 / 3 * len(map_crit_arr) and np.sum(lact_crit_arr) >= 2 / 3 * len(map_crit_arr):
+            circ_status_arr[jdx] = 1.0
+
+    return circ_status_arr
+    
+    
 
 def delete_low_density_hr_gap(vent_status_arr, hr_status_arr, configs=None):
     """ Deletes gaps in ventilation which are caused by likely sensor dis-connections"""
@@ -541,6 +560,91 @@ def delete_low_density_hr_gap(vent_status_arr, hr_status_arr, configs=None):
 
     return vent_status_arr
 
+def load_relevant_columns(df_pid, var_map):
+    ''' Loads the relevant columns from the patient stay'''
+    pat_cols={}
+    
+    pat_cols["fio2_col"] = np.array(df_pid[var_map["FiO2"]])
+    pat_cols["pao2_col"] = np.array(df_pid[var_map["PaO2"]])
+    pat_cols["etco2_col"] = np.array(df_pid[var_map["etCO2"]])
+
+    pat_cols["noreph_col"] = np.array(df_pid[var_map["Norephenephrine"][0]])
+    pat_cols["epineph_col"] = np.array(df_pid[var_map["Epinephrine"][0]])
+    pat_cols["vaso_col"] = np.array(df_pid[var_map["Vasopressin"][0]])
+
+    pat_cols["milri_col"] = np.array(df_pid[var_map["Milrinone"][0]])
+    pat_cols["dobut_col"] = np.array(df_pid[var_map["Dobutamine"][0]])
+    pat_cols["levosi_col"] = np.array(df_pid[var_map["Levosimendan"][0]])
+    pat_cols["theo_col"] = np.array(df_pid[var_map["Theophyllin"][0]])
+
+    pat_cols["lactate_col"] = np.array(df_pid[var_map["Lactate"][0]])
+    pat_cols["peep_col"] = np.array(df_pid[var_map["PEEP"]])
+
+    # Heartrate
+    pat_cols["hr_meas_cnt"] = np.array(df_pid["{}_IMPUTED_STATUS_CUM_COUNT".format(var_map["HR"])])
+
+    pat_cols["tv_col"] = np.array(df_pid[var_map["TV"]])
+    pat_cols["map_col"] = np.array(df_pid[var_map["MAP"][0]])
+    pat_cols["airway_col"] = np.array(df_pid[var_map["Airway"]])
+
+    # Ventilator mode group columns
+    pat_cols["vent_mode_col"] = np.array(df_pid[var_map["vent_mode"]])
+
+    pat_cols["spo2_col"] = np.array(df_pid[var_map["SpO2"]])
+
+    pat_cols["fio2_meas_cnt"] = np.array(df_pid["{}_IMPUTED_STAoTUS_CUM_COUNT".format(var_map["FiO2"])])
+    pat_cols["pao2_meas_cnt"] = np.array(df_pid["{}_IMPUTED_STATUS_CUM_COUNT".format(var_map["PaO2"])])
+    pat_cols["etco2_meas_cnt"] = np.array(df_pid["{}_IMPUTED_SoTATUS_CUM_COUNT".format(var_map["etCO2"])])
+    pat_cols["peep_meas_cnt"] = np.array(df_pid["{}_IMPUTED_STATUS_CUM_COUNT".format(var_map["PEEP"])])
+    pat_cols["hr_meas_cnt"] = np.array(df_pid["{}_IMPUTED_STATUS_CUM_COUNT".format(var_map["HR"])])
+    pat_cols["spo2_meas_cnt"] = np.array(df_pid["{}_IMPUTED_STATUS_CUM_COUNT".format(var_map["SpO2"])])
+
+    # Absolute time
+    pat_cols["abs_dtime_arr"] = np.array(df_pid["datetime"])
+    
+    return pat_cols
+
+
+def initialize_status_cols():
+    stat_arr={}
+
+    event_status_arr=np.zeros(shape=(fio2_col.size), dtype="<S10")
+    event_status_arr.fill("UNKNOWN")
+    stat_arr["event_status_arr"] = event_status_arr
+
+    # Status arrays
+    stat_arr["pao2_avail_arr"] = np.zeros(shape=(fio2_col.size))
+    stat_arr["fio2_avail_arr"] = np.zeros(shape=(fio2_col.size))
+    stat_arr["fio2_suppox_arr"] = np.zeros(shape=(fio2_col.size))
+    stat_arr["fio2_ambient_arr"] = np.zeros(shape=(fio2_col.size))
+    stat_arr["pao2_sao2_model_arr"] = np.zeros(shape=(fio2_col.size))
+    stat_arr["pao2_full_model_arr"] = np.zeros(shape=(fio2_col.size))
+
+    stat_arr["ratio_arr"] = np.zeros(shape=(fio2_col.size))
+    stat_arr["sur_ratio_arr"] = np.zeros(shape=(fio2_col.size))
+
+    stat_arr["pao2_est_arr"] = np.zeros(shape=(fio2_col.size))
+    stat_arr["fio2_est_arr"] = np.zeros(shape=(fio2_col.size))
+    stat_arr["vent_status_arr"] = np.zeros(shape=(fio2_col.size))
+    
+    readiness_ext_arr = np.zeros(shape=(fio2_col.size))
+    readiness_ext_arr[:] = np.nan
+    stat_arr["readiness_ext_arr"]=readiness_ext_arr
+
+    # Votes arrays
+    stat_arr["vent_votes_arr"] = np.zeros(shape=(fio2_col.size))
+    stat_arr["vent_votes_etco2_arr"] = np.zeros(shape=(fio2_col.size))
+    stat_arr["vent_votes_ventgroup_arr"] = np.zeros(shape=(fio2_col.size))
+    stat_arr["vent_votes_tv_arr"] = np.zeros(shape=(fio2_col.size))
+    stat_arr["vent_votes_airway_arr"] = np.zeros(shape=(fio2_col.size))
+
+    stat_arr["peep_status_arr"] = np.zeros(shape=(fio2_col.size))
+    stat_arr["peep_threshold_arr"] = np.zeros(shape=(fio2_col.size))
+    stat_arr["hr_status_arr"] = np.zeros(shape=(fio2_col.size))
+    stat_arr["etco2_status_arr"] = np.zeros(shape=(fio2_col.size))
+
+    return stat_arr
+
 
 def suppox_to_fio2(suppox_val):
     """ Conversion of supplemental oxygen to FiO2 estimated value"""
@@ -562,21 +666,8 @@ def conservative_state(state1, state2):
 
 def endpoint_gen_benchmark(configs):
     var_map = configs["VAR_IDS"]
-    # MH Never used
-    raw_var_map = configs["RAW_VAR_IDS"]
     sz_window = configs["length_fw_window"]
     abga_window = configs["length_ABGA_window"]
-    # MH Never used
-    missing_unm = 0
-
-    # MH Never used
-    # Threshold statistics
-    stat_counts_ready_and_failure = 0
-    stat_counts_ready_and_success = 0
-    stat_counts_nready_and_failure = 0
-    stat_counts_nready_and_success = 0
-    stat_counts_ready_nextube = 0
-    stat_counts_nready_nextube = 0
 
     imputed_f = configs["imputed_path"]
     merged_f = os.path.join(configs["merged_h5"])
@@ -602,22 +693,10 @@ def endpoint_gen_benchmark(configs):
     pids = list(df_batch.patientid.unique())
 
     logging.info("Number of patients in batch: {}".format(len(df_batch.patientid.unique())))
-    # MH Never used
-    first_write = True
     out_fp = os.path.join(out_folder, "batch_{}.parquet".format(batch_id))
 
     event_count = {"FIO2_AVAILABLE": 0, "SUPPOX_NO_MEAS_12_HOURS_LIMIT": 0, "SUPPOX_MAIN_VAR": 0, "SUPPOX_HIGH_FLOW": 0,
                    "SUPPOX_NO_FILL_STOP": 0}
-
-    # MH Never used
-    readiness_ext_count = 0
-    not_ready_ext_count = 0
-    readiness_and_extubated_cnt = 0
-    extubated_cnt = 0
-    df_static = pd.read_parquet(configs["general_data_table_path"])
-    X_reg_collect = []
-    y_reg_collect = []
-    aux_reg_collect = []
 
     out_dfs = []
 
@@ -632,8 +711,6 @@ def endpoint_gen_benchmark(configs):
         df_merged_pid.sort_values(by="datetime", inplace=True)
 
         suppox_val = {}
-        # MH Never used
-        suppox_ts = {}
 
         # Main route of SuppOx
         df_suppox_red_async = df_merged_pid[[var_map["SuppOx"], "datetime"]]
@@ -645,102 +722,17 @@ def endpoint_gen_benchmark(configs):
         # Strategy is to create an imputed SuppOx column based on the spec using
         # forward filling heuristics
 
-        # Relevant meta-variables
-        fio2_col = np.array(df_pid[var_map["FiO2"]])
-        pao2_col = np.array(df_pid[var_map["PaO2"]])
-        etco2_col = np.array(df_pid[var_map["etCO2"]])
-
-        # MH Never used
-        paco2_col = np.array(df_pid[var_map["PaCO2"]])
-        gcs_a_col = np.array(df_pid[var_map["GCS_Antwort"]])
-        gcs_m_col = np.array(df_pid[var_map["GCS_Motorik"]])
-        gcs_aug_col = np.array(df_pid[var_map["GCS_Augen"]])
-        weight_col = np.array(df_pid[var_map["Weight"][0]])
-
-        noreph_col = np.array(df_pid[var_map["Norephenephrine"][0]])
-        epineph_col = np.array(df_pid[var_map["Epinephrine"][0]])
-        vaso_col = np.array(df_pid[var_map["Vasopressin"][0]])
-
-        milri_col = np.array(df_pid[var_map["Milrinone"][0]])
-        dobut_col = np.array(df_pid[var_map["Dobutamine"][0]])
-        levosi_col = np.array(df_pid[var_map["Levosimendan"][0]])
-        theo_col = np.array(df_pid[var_map["Theophyllin"][0]])
-
-        lactate_col = np.array(df_pid[var_map["Lactate"][0]])
-        peep_col = np.array(df_pid[var_map["PEEP"]])
-
-        # MH Never used
-        # Heartrate
-        hr_col = np.array(df_pid[var_map["HR"]])
-        hr_meas_cnt = np.array(df_pid["{}_IMPUTED_STATUS_CUM_COUNT".format(var_map["HR"])])
-
-        # MH Never used
-        # Temperature
-        temp_col = np.array(df_pid[var_map["Temp"]])
-        temp_meas_cnt = np.array(df_pid["{}_IMPUTED_STATUS_CUM_COUNT".format(var_map["Temp"])])
-
-        # MH Never used
-        rrate_col = np.array(df_pid[var_map["RRate"]])
-
-        tv_col = np.array(df_pid[var_map["TV"]])
-        map_col = np.array(df_pid[var_map["MAP"][0]])
-        airway_col = np.array(df_pid[var_map["Airway"]])
-
-        # Ventilator mode group columns
-        vent_mode_col = np.array(df_pid[var_map["vent_mode"]])
-
-        spo2_col = np.array(df_pid[var_map["SpO2"]])
-
+        # Load patient columns from data-frame
+        pat_cols = load_relevant_columns(df_pid, var_map)
+        locals().update(pat_cols)
+        
         if configs["presmooth_spo2"]:
             spo2_col = percentile_smooth(spo2_col, configs["spo2_smooth_percentile"],
                                          configs["spo2_smooth_window_size_mins"])
-        # MH Never used
-        sao2_col = np.array(df_pid[var_map["SaO2"]])
-        ph_col = np.array(df_pid[var_map["pH"]])
 
-        fio2_meas_cnt = np.array(df_pid["{}_IMPUTED_STATUS_CUM_COUNT".format(var_map["FiO2"])])
-        pao2_meas_cnt = np.array(df_pid["{}_IMPUTED_STATUS_CUM_COUNT".format(var_map["PaO2"])])
-        etco2_meas_cnt = np.array(df_pid["{}_IMPUTED_STATUS_CUM_COUNT".format(var_map["etCO2"])])
-        peep_meas_cnt = np.array(df_pid["{}_IMPUTED_STATUS_CUM_COUNT".format(var_map["PEEP"])])
-        hr_meas_cnt = np.array(df_pid["{}_IMPUTED_STATUS_CUM_COUNT".format(var_map["HR"])])
-        spo2_meas_cnt = np.array(df_pid["{}_IMPUTED_STATUS_CUM_COUNT".format(var_map["SpO2"])])
-
-        # MH Never used
-        sao2_meas_cnt = np.array(df_pid["{}_IMPUTED_STATUS_CUM_COUNT".format(var_map["SaO2"])])
-        ph_meas_cnt = np.array(df_pid["{}_IMPUTED_STATUS_CUM_COUNT".format(var_map["pH"])])
-
-        abs_dtime_arr = np.array(df_pid["datetime"])
-        event_status_arr = np.zeros(shape=(fio2_col.size), dtype="<S10")
-
-        # Status arrays
-        pao2_avail_arr = np.zeros(shape=(fio2_col.size))
-        fio2_avail_arr = np.zeros(shape=(fio2_col.size))
-        fio2_suppox_arr = np.zeros(shape=(fio2_col.size))
-        fio2_ambient_arr = np.zeros(shape=(fio2_col.size))
-        pao2_sao2_model_arr = np.zeros(shape=(fio2_col.size))
-        pao2_full_model_arr = np.zeros(shape=(fio2_col.size))
-
-        ratio_arr = np.zeros(shape=(fio2_col.size))
-        sur_ratio_arr = np.zeros(shape=(fio2_col.size))
-
-        pao2_est_arr = np.zeros(shape=(fio2_col.size))
-        fio2_est_arr = np.zeros(shape=(fio2_col.size))
-        vent_status_arr = np.zeros(shape=(fio2_col.size))
-        readiness_ext_arr = np.zeros(shape=(fio2_col.size))
-        readiness_ext_arr[:] = np.nan
-
-        # Votes arrays
-        vent_votes_arr = np.zeros(shape=(fio2_col.size))
-        vent_votes_etco2_arr = np.zeros(shape=(fio2_col.size))
-        vent_votes_ventgroup_arr = np.zeros(shape=(fio2_col.size))
-        vent_votes_tv_arr = np.zeros(shape=(fio2_col.size))
-        vent_votes_airway_arr = np.zeros(shape=(fio2_col.size))
-
-        peep_status_arr = np.zeros(shape=(fio2_col.size))
-        peep_threshold_arr = np.zeros(shape=(fio2_col.size))
-        hr_status_arr = np.zeros(shape=(fio2_col.size))
-        etco2_status_arr = np.zeros(shape=(fio2_col.size))
-        event_status_arr.fill("UNKNOWN")
+        # Initialize status columns for this patient
+        status_cols= initialize_status_cols()
+        locals().update(status_cols)
 
         # Array pointers tracking the current active value of each type
         suppox_async_red_ptr = -1
@@ -748,9 +740,6 @@ def endpoint_gen_benchmark(configs):
         # ======================== VENTILATION ================================================================================================
 
         # Label each point in the 30 minute window with ventilation
-
-        # MH Never used
-        in_vent_event = False
 
         for jdx in range(0, len(ratio_arr)):
             low_vent_idx = max(0, jdx - configs["peep_search_bw"])
@@ -809,13 +798,7 @@ def endpoint_gen_benchmark(configs):
             vent_votes_arr[jdx] = vote_score
 
             if vote_score >= configs["vent_vote_threshold"]:
-                # MH Never used
-                in_vent_event = True
-
                 vent_status_arr[jdx] = 1
-            else:
-                # MH Never used
-                in_vent_event = False
 
             if peep_meas_win:
                 peep_status_arr[jdx] = 1
@@ -897,9 +880,6 @@ def endpoint_gen_benchmark(configs):
             bw_etco2_meas = etco2_meas_cnt[max(0, jdx - configs["sz_etco2_window"]):jdx + 1]
             fio2_meas = bw_fio2_meas[-1] - bw_fio2_meas[0] > 0
 
-            # MH Never used
-            etco2_meas = bw_etco2_meas[-1] - bw_etco2_meas[0] > 0
-
             mode_group_est = vent_mode_col[jdx]
 
             # FiO2 is measured since beginning of stay and EtCO2 was measured, we use FiO2 (indefinite forward filling)
@@ -961,9 +941,6 @@ def endpoint_gen_benchmark(configs):
             # Compute the individual components of the Horowitz index
             pao2_est_arr[jdx] = pao2_estimate
             fio2_est_arr[jdx] = fio2_val
-
-        # MH Never used
-        pao2_est_arr_orig = np.copy(pao2_est_arr)
 
         # Smooth individual components of the P/F ratio estimate
         if configs["kernel_smooth_estimate_pao2"]:
@@ -1082,25 +1059,13 @@ def endpoint_gen_benchmark(configs):
                 else:
                     event_status_arr[idx] = "event_3"
 
-        circ_status_arr = np.zeros_like(map_col)
 
-        # Computation of the circulatory failure toy version of the endpoint
-        for jdx in range(0, len(event_status_arr)):
-            map_subarr = map_col[max(0, jdx - 12):min(jdx + 12, len(event_status_arr))]
-            lact_subarr = lactate_col[max(0, jdx - 12):min(jdx + 12, len(event_status_arr))]
-            milri_subarr = milri_col[max(0, jdx - 12):min(jdx + 12, len(event_status_arr))]
-            dobut_subarr = dobut_col[max(0, jdx - 12):min(jdx + 12, len(event_status_arr))]
-            levosi_subarr = levosi_col[max(0, jdx - 12):min(jdx + 12, len(event_status_arr))]
-            theo_subarr = theo_col[max(0, jdx - 12):min(jdx + 12, len(event_status_arr))]
-            noreph_subarr = noreph_col[max(0, jdx - 12):min(jdx + 12, len(event_status_arr))]
-            epineph_subarr = epineph_col[max(0, jdx - 12):min(jdx + 12, len(event_status_arr))]
-            vaso_subarr = vaso_col[max(0, jdx - 12):min(jdx + 12, len(event_status_arr))]
-            map_crit_arr = ((map_subarr < 65) | (milri_subarr > 0) | (dobut_subarr > 0) | (levosi_subarr > 0) | (
-                    theo_subarr > 0) | (noreph_subarr > 0) | \
-                            (epineph_subarr > 0) | (vaso_subarr > 0))
-            lact_crit_arr = (lact_subarr > 2)
-            if np.sum(map_crit_arr) >= 2 / 3 * len(map_crit_arr) and np.sum(lact_crit_arr) >= 2 / 3 * len(map_crit_arr):
-                circ_status_arr[jdx] = 1.0
+        circ_status_arr=gen_circ_failure_ep(event_status_arr=event_status_arr,
+                                            map_col=map_col, lactate_col=lactate_col,
+                                            milri_col=milri_col, dobut_col=dobut_col,
+                                            levosi_col=levosi_col, theo_col=theo_col,
+                                            noreph_col=noreph_col, epineph_col=epineph_col,
+                                            vaso_col=vaso_col)
 
         # Traverse the array and delete short gap
         event_status_arr, relabel_arr = delete_small_continuous_blocks(event_status_arr,
