@@ -560,6 +560,91 @@ def delete_low_density_hr_gap(vent_status_arr, hr_status_arr, configs=None):
 
     return vent_status_arr
 
+def load_relevant_columns(df_pid, var_map):
+    ''' Loads the relevant columns from the patient stay'''
+    pat_cols={}
+    
+    pat_cols["fio2_col"] = np.array(df_pid[var_map["FiO2"]])
+    pat_cols["pao2_col"] = np.array(df_pid[var_map["PaO2"]])
+    pat_cols["etco2_col"] = np.array(df_pid[var_map["etCO2"]])
+
+    pat_cols["noreph_col"] = np.array(df_pid[var_map["Norephenephrine"][0]])
+    pat_cols["epineph_col"] = np.array(df_pid[var_map["Epinephrine"][0]])
+    pat_cols["vaso_col"] = np.array(df_pid[var_map["Vasopressin"][0]])
+
+    pat_cols["milri_col"] = np.array(df_pid[var_map["Milrinone"][0]])
+    pat_cols["dobut_col"] = np.array(df_pid[var_map["Dobutamine"][0]])
+    pat_cols["levosi_col"] = np.array(df_pid[var_map["Levosimendan"][0]])
+    pat_cols["theo_col"] = np.array(df_pid[var_map["Theophyllin"][0]])
+
+    pat_cols["lactate_col"] = np.array(df_pid[var_map["Lactate"][0]])
+    pat_cols["peep_col"] = np.array(df_pid[var_map["PEEP"]])
+
+    # Heartrate
+    pat_cols["hr_meas_cnt"] = np.array(df_pid["{}_IMPUTED_STATUS_CUM_COUNT".format(var_map["HR"])])
+
+    pat_cols["tv_col"] = np.array(df_pid[var_map["TV"]])
+    pat_cols["map_col"] = np.array(df_pid[var_map["MAP"][0]])
+    pat_cols["airway_col"] = np.array(df_pid[var_map["Airway"]])
+
+    # Ventilator mode group columns
+    pat_cols["vent_mode_col"] = np.array(df_pid[var_map["vent_mode"]])
+
+    pat_cols["spo2_col"] = np.array(df_pid[var_map["SpO2"]])
+
+    pat_cols["fio2_meas_cnt"] = np.array(df_pid["{}_IMPUTED_STAoTUS_CUM_COUNT".format(var_map["FiO2"])])
+    pat_cols["pao2_meas_cnt"] = np.array(df_pid["{}_IMPUTED_STATUS_CUM_COUNT".format(var_map["PaO2"])])
+    pat_cols["etco2_meas_cnt"] = np.array(df_pid["{}_IMPUTED_SoTATUS_CUM_COUNT".format(var_map["etCO2"])])
+    pat_cols["peep_meas_cnt"] = np.array(df_pid["{}_IMPUTED_STATUS_CUM_COUNT".format(var_map["PEEP"])])
+    pat_cols["hr_meas_cnt"] = np.array(df_pid["{}_IMPUTED_STATUS_CUM_COUNT".format(var_map["HR"])])
+    pat_cols["spo2_meas_cnt"] = np.array(df_pid["{}_IMPUTED_STATUS_CUM_COUNT".format(var_map["SpO2"])])
+
+    # Absolute time
+    pat_cols["abs_dtime_arr"] = np.array(df_pid["datetime"])
+    
+    return pat_cols
+
+
+def initialize_status_cols():
+    stat_arr={}
+
+    event_status_arr=np.zeros(shape=(fio2_col.size), dtype="<S10")
+    event_status_arr.fill("UNKNOWN")
+    stat_arr["event_status_arr"] = event_status_arr
+
+    # Status arrays
+    stat_arr["pao2_avail_arr"] = np.zeros(shape=(fio2_col.size))
+    stat_arr["fio2_avail_arr"] = np.zeros(shape=(fio2_col.size))
+    stat_arr["fio2_suppox_arr"] = np.zeros(shape=(fio2_col.size))
+    stat_arr["fio2_ambient_arr"] = np.zeros(shape=(fio2_col.size))
+    stat_arr["pao2_sao2_model_arr"] = np.zeros(shape=(fio2_col.size))
+    stat_arr["pao2_full_model_arr"] = np.zeros(shape=(fio2_col.size))
+
+    stat_arr["ratio_arr"] = np.zeros(shape=(fio2_col.size))
+    stat_arr["sur_ratio_arr"] = np.zeros(shape=(fio2_col.size))
+
+    stat_arr["pao2_est_arr"] = np.zeros(shape=(fio2_col.size))
+    stat_arr["fio2_est_arr"] = np.zeros(shape=(fio2_col.size))
+    stat_arr["vent_status_arr"] = np.zeros(shape=(fio2_col.size))
+    
+    readiness_ext_arr = np.zeros(shape=(fio2_col.size))
+    readiness_ext_arr[:] = np.nan
+    stat_arr["readiness_ext_arr"]=readiness_ext_arr
+
+    # Votes arrays
+    stat_arr["vent_votes_arr"] = np.zeros(shape=(fio2_col.size))
+    stat_arr["vent_votes_etco2_arr"] = np.zeros(shape=(fio2_col.size))
+    stat_arr["vent_votes_ventgroup_arr"] = np.zeros(shape=(fio2_col.size))
+    stat_arr["vent_votes_tv_arr"] = np.zeros(shape=(fio2_col.size))
+    stat_arr["vent_votes_airway_arr"] = np.zeros(shape=(fio2_col.size))
+
+    stat_arr["peep_status_arr"] = np.zeros(shape=(fio2_col.size))
+    stat_arr["peep_threshold_arr"] = np.zeros(shape=(fio2_col.size))
+    stat_arr["hr_status_arr"] = np.zeros(shape=(fio2_col.size))
+    stat_arr["etco2_status_arr"] = np.zeros(shape=(fio2_col.size))
+
+    return stat_arr
+
 
 def suppox_to_fio2(suppox_val):
     """ Conversion of supplemental oxygen to FiO2 estimated value"""
@@ -637,78 +722,17 @@ def endpoint_gen_benchmark(configs):
         # Strategy is to create an imputed SuppOx column based on the spec using
         # forward filling heuristics
 
-        # Relevant meta-variables
-        fio2_col = np.array(df_pid[var_map["FiO2"]])
-        pao2_col = np.array(df_pid[var_map["PaO2"]])
-        etco2_col = np.array(df_pid[var_map["etCO2"]])
-
-        noreph_col = np.array(df_pid[var_map["Norephenephrine"][0]])
-        epineph_col = np.array(df_pid[var_map["Epinephrine"][0]])
-        vaso_col = np.array(df_pid[var_map["Vasopressin"][0]])
-
-        milri_col = np.array(df_pid[var_map["Milrinone"][0]])
-        dobut_col = np.array(df_pid[var_map["Dobutamine"][0]])
-        levosi_col = np.array(df_pid[var_map["Levosimendan"][0]])
-        theo_col = np.array(df_pid[var_map["Theophyllin"][0]])
-
-        lactate_col = np.array(df_pid[var_map["Lactate"][0]])
-        peep_col = np.array(df_pid[var_map["PEEP"]])
-
-        # Heartrate
-        hr_meas_cnt = np.array(df_pid["{}_IMPUTED_STATUS_CUM_COUNT".format(var_map["HR"])])
-
-        tv_col = np.array(df_pid[var_map["TV"]])
-        map_col = np.array(df_pid[var_map["MAP"][0]])
-        airway_col = np.array(df_pid[var_map["Airway"]])
-
-        # Ventilator mode group columns
-        vent_mode_col = np.array(df_pid[var_map["vent_mode"]])
-
-        spo2_col = np.array(df_pid[var_map["SpO2"]])
-
+        # Load patient columns from data-frame
+        pat_cols = load_relevant_columns(df_pid, var_map)
+        locals().update(pat_cols)
+        
         if configs["presmooth_spo2"]:
             spo2_col = percentile_smooth(spo2_col, configs["spo2_smooth_percentile"],
                                          configs["spo2_smooth_window_size_mins"])
-            
-        fio2_meas_cnt = np.array(df_pid["{}_IMPUTED_STATUS_CUM_COUNT".format(var_map["FiO2"])])
-        pao2_meas_cnt = np.array(df_pid["{}_IMPUTED_STATUS_CUM_COUNT".format(var_map["PaO2"])])
-        etco2_meas_cnt = np.array(df_pid["{}_IMPUTED_STATUS_CUM_COUNT".format(var_map["etCO2"])])
-        peep_meas_cnt = np.array(df_pid["{}_IMPUTED_STATUS_CUM_COUNT".format(var_map["PEEP"])])
-        hr_meas_cnt = np.array(df_pid["{}_IMPUTED_STATUS_CUM_COUNT".format(var_map["HR"])])
-        spo2_meas_cnt = np.array(df_pid["{}_IMPUTED_STATUS_CUM_COUNT".format(var_map["SpO2"])])
 
-        abs_dtime_arr = np.array(df_pid["datetime"])
-        event_status_arr = np.zeros(shape=(fio2_col.size), dtype="<S10")
-
-        # Status arrays
-        pao2_avail_arr = np.zeros(shape=(fio2_col.size))
-        fio2_avail_arr = np.zeros(shape=(fio2_col.size))
-        fio2_suppox_arr = np.zeros(shape=(fio2_col.size))
-        fio2_ambient_arr = np.zeros(shape=(fio2_col.size))
-        pao2_sao2_model_arr = np.zeros(shape=(fio2_col.size))
-        pao2_full_model_arr = np.zeros(shape=(fio2_col.size))
-
-        ratio_arr = np.zeros(shape=(fio2_col.size))
-        sur_ratio_arr = np.zeros(shape=(fio2_col.size))
-
-        pao2_est_arr = np.zeros(shape=(fio2_col.size))
-        fio2_est_arr = np.zeros(shape=(fio2_col.size))
-        vent_status_arr = np.zeros(shape=(fio2_col.size))
-        readiness_ext_arr = np.zeros(shape=(fio2_col.size))
-        readiness_ext_arr[:] = np.nan
-
-        # Votes arrays
-        vent_votes_arr = np.zeros(shape=(fio2_col.size))
-        vent_votes_etco2_arr = np.zeros(shape=(fio2_col.size))
-        vent_votes_ventgroup_arr = np.zeros(shape=(fio2_col.size))
-        vent_votes_tv_arr = np.zeros(shape=(fio2_col.size))
-        vent_votes_airway_arr = np.zeros(shape=(fio2_col.size))
-
-        peep_status_arr = np.zeros(shape=(fio2_col.size))
-        peep_threshold_arr = np.zeros(shape=(fio2_col.size))
-        hr_status_arr = np.zeros(shape=(fio2_col.size))
-        etco2_status_arr = np.zeros(shape=(fio2_col.size))
-        event_status_arr.fill("UNKNOWN")
+        # Initialize status columns for this patient
+        status_cols= initialize_status_cols()
+        locals().update(status_cols)
 
         # Array pointers tracking the current active value of each type
         suppox_async_red_ptr = -1
