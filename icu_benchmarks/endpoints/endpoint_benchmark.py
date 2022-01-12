@@ -501,6 +501,33 @@ def collect_regression_data(spo2_col, spo2_meas_cnt, pao2_col, pao2_meas_cnt, fi
     else:
         return (None, None, None)
 
+def gen_circ_failure_ep(event_status_arr=None, map_col=None, lactate_col=None, milri_col=None, dobut_col=None,
+                        levosi_col=None, theo_col=None,
+                        noreph_col=None, epineph_col=None, vaso_col=None):
+    ''' Circulatory failure endpoint definition'''
+    circ_status_arr = np.zeros_like(map_col)
+
+    # Computation of the circulatory failure toy version of the endpoint
+    for jdx in range(0, len(event_status_arr)):
+        map_subarr = map_col[max(0, jdx - 12):min(jdx + 12, len(event_status_arr))]
+        lact_subarr = lactate_col[max(0, jdx - 12):min(jdx + 12, len(event_status_arr))]
+        milri_subarr = milri_col[max(0, jdx - 12):min(jdx + 12, len(event_status_arr))]
+        dobut_subarr = dobut_col[max(0, jdx - 12):min(jdx + 12, len(event_status_arr))]
+        levosi_subarr = levosi_col[max(0, jdx - 12):min(jdx + 12, len(event_status_arr))]
+        theo_subarr = theo_col[max(0, jdx - 12):min(jdx + 12, len(event_status_arr))]
+        noreph_subarr = noreph_col[max(0, jdx - 12):min(jdx + 12, len(event_status_arr))]
+        epineph_subarr = epineph_col[max(0, jdx - 12):min(jdx + 12, len(event_status_arr))]
+        vaso_subarr = vaso_col[max(0, jdx - 12):min(jdx + 12, len(event_status_arr))]
+        map_crit_arr = ((map_subarr < 65) | (milri_subarr > 0) | (dobut_subarr > 0) | (levosi_subarr > 0) | (
+                theo_subarr > 0) | (noreph_subarr > 0) | \
+                        (epineph_subarr > 0) | (vaso_subarr > 0))
+        lact_crit_arr = (lact_subarr > 2)
+        if np.sum(map_crit_arr) >= 2 / 3 * len(map_crit_arr) and np.sum(lact_crit_arr) >= 2 / 3 * len(map_crit_arr):
+            circ_status_arr[jdx] = 1.0
+
+    return circ_status_arr
+    
+    
 
 def delete_low_density_hr_gap(vent_status_arr, hr_status_arr, configs=None):
     """ Deletes gaps in ventilation which are caused by likely sensor dis-connections"""
@@ -1008,25 +1035,13 @@ def endpoint_gen_benchmark(configs):
                 else:
                     event_status_arr[idx] = "event_3"
 
-        circ_status_arr = np.zeros_like(map_col)
 
-        # Computation of the circulatory failure toy version of the endpoint
-        for jdx in range(0, len(event_status_arr)):
-            map_subarr = map_col[max(0, jdx - 12):min(jdx + 12, len(event_status_arr))]
-            lact_subarr = lactate_col[max(0, jdx - 12):min(jdx + 12, len(event_status_arr))]
-            milri_subarr = milri_col[max(0, jdx - 12):min(jdx + 12, len(event_status_arr))]
-            dobut_subarr = dobut_col[max(0, jdx - 12):min(jdx + 12, len(event_status_arr))]
-            levosi_subarr = levosi_col[max(0, jdx - 12):min(jdx + 12, len(event_status_arr))]
-            theo_subarr = theo_col[max(0, jdx - 12):min(jdx + 12, len(event_status_arr))]
-            noreph_subarr = noreph_col[max(0, jdx - 12):min(jdx + 12, len(event_status_arr))]
-            epineph_subarr = epineph_col[max(0, jdx - 12):min(jdx + 12, len(event_status_arr))]
-            vaso_subarr = vaso_col[max(0, jdx - 12):min(jdx + 12, len(event_status_arr))]
-            map_crit_arr = ((map_subarr < 65) | (milri_subarr > 0) | (dobut_subarr > 0) | (levosi_subarr > 0) | (
-                    theo_subarr > 0) | (noreph_subarr > 0) | \
-                            (epineph_subarr > 0) | (vaso_subarr > 0))
-            lact_crit_arr = (lact_subarr > 2)
-            if np.sum(map_crit_arr) >= 2 / 3 * len(map_crit_arr) and np.sum(lact_crit_arr) >= 2 / 3 * len(map_crit_arr):
-                circ_status_arr[jdx] = 1.0
+        circ_status_arr=gen_circ_failure_ep(event_status_arr=event_status_arr,
+                                            map_col=map_col, lactate_col=lactate_col,
+                                            milri_col=milri_col, dobut_col=dobut_col,
+                                            levosi_col=levosi_col, theo_col=theo_col,
+                                            noreph_col=noreph_col, epineph_col=epineph_col,
+                                            vaso_col=vaso_col)
 
         # Traverse the array and delete short gap
         event_status_arr, relabel_arr = delete_small_continuous_blocks(event_status_arr,
