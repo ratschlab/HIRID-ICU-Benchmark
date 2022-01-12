@@ -9,11 +9,12 @@ from icu_benchmarks.preprocessing import merge
 
 TEST_ROOT = Path(__file__).parent.parent
 
-PREPROCESSING_RES = TEST_ROOT.parent/'preprocessing'/'resources'
+PREPROCESSING_RES = TEST_ROOT.parent / 'preprocessing' / 'resources'
+
 
 @pytest.fixture()
 def varref():
-    varref, _ = lookups.read_reference_table(PREPROCESSING_RES/'varref.tsv')
+    varref, _ = lookups.read_reference_table(PREPROCESSING_RES / 'varref.tsv')
     return varref
 
 
@@ -30,7 +31,7 @@ def test_drop_out_of_range_values(varref):
 
     df_res = merge.drop_out_of_range_values(df, varref)
     assert df_res.shape == (2, 3)
-    assert all(df_res['value'] != invalid_val) # invalid value should be gone
+    assert all(df_res['value'] != invalid_val)  # invalid value should be gone
 
 
 def _get_df_with_duplicates(varid, values):
@@ -47,13 +48,13 @@ def _get_df_with_duplicates(varid, values):
 
 
 @pytest.mark.parametrize("values,expected_values", (
-    ([], []),
-    ([0.5, 0.5, 0.5], [0.5]),
-    ([1.0, 1.1, 1.1, 1.0], [1.05]),
+        ([], []),
+        ([0.5, 0.5, 0.5], [0.5]),
+        ([1.0, 1.1, 1.1, 1.0], [1.05]),
 ))
 def test_drop_duplicates_non_pharma(values, expected_values):
     varid = 23
-    stddev_dict = {varid : 20.0}
+    stddev_dict = {varid: 20.0}
 
     df = _get_df_with_duplicates(varid, values)
 
@@ -61,4 +62,3 @@ def test_drop_duplicates_non_pharma(values, expected_values):
 
     assert len(df_ret) == len(expected_values)
     assert list(df_ret[VALUE]) == expected_values
-
