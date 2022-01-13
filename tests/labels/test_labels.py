@@ -3,9 +3,9 @@ from pathlib import Path
 import pytest
 import numpy as np
 
-from icu_benchmarks.labels import label_benchmark_util
+from icu_benchmarks.common.constants import STEPS_PER_HOUR
+from icu_benchmarks.labels import utils
 
-STEPS_PER_HOUR = label_benchmark_util.STEPS_PER_HOUR
 TEST_ROOT = Path(__file__).parent.parent
 
 PREPROCESSING_RES = TEST_ROOT.parent / 'preprocessing' / 'resources'
@@ -26,7 +26,7 @@ def test_transition_to_failure(lhours, rhours):
     start_r_failure, end_r_failure, = 2 * rhours * STEPS_PER_HOUR, 3 * rhours * STEPS_PER_HOUR
     start_l_failure, end_l_failure, = 5 * rhours * STEPS_PER_HOUR, 5 * rhours * STEPS_PER_HOUR + lhours * STEPS_PER_HOUR
 
-    labels = label_benchmark_util.transition_to_failure(annotated_col, lhours, rhours)
+    labels = utils.transition_to_failure(annotated_col, lhours, rhours)
 
     # Check we no label during failure
     if start_r_failure != end_r_failure:
@@ -64,7 +64,7 @@ def test_transition_to_abs(target, lhours, rhours):
     start_r_failure, end_r_failure, = 2 * rhours * STEPS_PER_HOUR, 3 * rhours * STEPS_PER_HOUR
     start_l_failure, end_l_failure, = 5 * rhours * STEPS_PER_HOUR, 5 * rhours * STEPS_PER_HOUR + lhours * STEPS_PER_HOUR
 
-    labels = label_benchmark_util.transition_to_abs(annotated_col, target, lhours, rhours)
+    labels = utils.transition_to_abs(annotated_col, target, lhours, rhours)
 
     # Check we no label during failure
     if start_r_failure != end_r_failure:
@@ -92,9 +92,9 @@ def test_transition_to_abs(target, lhours, rhours):
                                                                     (25, 1, 24),
                                                                     (12, 0, 24),
                                                                     (12, 1, 24)))
-def test_dynamic_mortality_at_hours(stay_length_hours, mort_status, at_hours):
+def test_unique_label_at_hours(stay_length_hours, mort_status, at_hours):
     stay_length = stay_length_hours * STEPS_PER_HOUR
-    labels = label_benchmark_util.dynamic_mortality_at_hours(stay_length, mort_status, at_hours)
+    labels = utils.unique_label_at_hours(stay_length, mort_status, at_hours)
     assert len(labels) == stay_length
     if stay_length >= at_hours * STEPS_PER_HOUR:  # Stay longer than at_hours should have a unique label
         assert labels[at_hours * STEPS_PER_HOUR - 1] == mort_status
@@ -115,7 +115,7 @@ def test_future_urine_output(rhours):
         urine_meas_arr[idx] = 1
         urine_col[idx - rhours * STEPS_PER_HOUR + 1:idx + 1] = 60.0  # We set rate to 1 and 2 ml/h/kg
         assert len(urine_col[idx - rhours * STEPS_PER_HOUR + 1:idx + 1]) == rhours * STEPS_PER_HOUR
-    labels_reg, labels_binary = label_benchmark_util.future_urine_output(urine_col, urine_meas_arr, weight, rhours)
+    labels_reg, labels_binary = utils.future_urine_output(urine_col, urine_meas_arr, weight, rhours)
 
     # Check labels are only rhours before measurements
     assert np.all(np.where(~np.isnan(labels_reg)) == np.array(idxs_meas) - rhours * STEPS_PER_HOUR)

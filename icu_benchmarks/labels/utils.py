@@ -1,7 +1,55 @@
 import numpy as np
+from icu_benchmarks.common.constants import STEPS_PER_HOUR, BINARY_TSH_URINE
 
-STEPS_PER_HOUR = 12
-BINARY_TSH_URINE = 0.5
+def merge_apache_groups(apache_ii_group, apache_iv_group, apache_ii_map, apache_iv_map):
+    if np.isfinite(apache_ii_group) and int(apache_ii_group) in apache_ii_map.keys():
+        apache_pat_group = apache_ii_map[int(apache_ii_group)]
+    elif np.isfinite(apache_iv_group) and int(apache_iv_group) in apache_iv_map.keys():
+        apache_pat_group = apache_iv_map[int(apache_iv_group)]
+    else:
+        apache_pat_group = np.nan
+    return apache_pat_group
+
+def get_hr_status(hr_col):
+    """Return a presence feature on HR given the cumulative counts of HR.
+
+    Presence at time t is valid if there is a HR measurement in th 20min surrounding the index.
+    """
+
+    hr_status_arr = np.zeros_like(hr_col)
+    for jdx in range(hr_col.size):
+        if jdx in [0, 1]:
+            n_hr_count = hr_col[jdx + 2]
+        elif jdx == hr_col.size - 1:
+            subarr = hr_col[jdx - 3:jdx + 1]
+            n_hr_count = subarr[-1] - subarr[0]
+        else:
+            subarr = hr_col[jdx - 2:jdx + 2]
+            n_hr_count = subarr[-1] - subarr[0]
+
+        hr_status_arr[jdx] = 1 if n_hr_count > 0 else 0
+
+    return hr_status_arr
+
+
+def get_any_resp_label(pre_resp_arr):
+    """Transforms multiple level of severity annotation of respiratory failure events to a unique binary label"""
+
+    ann_resp_arr = np.zeros_like(pre_resp_arr)
+    for jdx in range(ann_resp_arr.size):
+        if pre_resp_arr[jdx] in ["event_1", "event_2", "event_3"]:
+            ann_resp_arr[jdx] = 1
+        elif pre_resp_arr[jdx] in ["UNKNOWN"]:
+            ann_resp_arr[jdx] = np.nan
+    return ann_resp_arr
+
+
+def convolve_hr(in_arr, hr_status_arr):
+    """ Convolve an array with a HR status arr"""
+    out_arr = np.copy(in_arr)
+    out_arr[hr_status_arr == 0] = np.nan
+    return out_arr
+
 
 def transition_to_abs(score_arr, target, lhours, rhours):
     """ Transition to an absolute value from a value below the target"""
@@ -20,12 +68,12 @@ def transition_to_abs(score_arr, target, lhours, rhours):
     return out_arr
 
 
-def dynamic_mortality_at_hours(stay_length, mort_status, at_hours=24):
-    """ Mortality at a fixed time-point"""
+def unique_label_at_hours(stay_length, status, at_hours=24):
+    """ Unique Label assigned at a fixed time-point"""
     out_arr = np.zeros(stay_length)
     out_arr[:] = np.nan
     if stay_length >= at_hours * STEPS_PER_HOUR:
-        out_arr[at_hours * STEPS_PER_HOUR - 1] = mort_status
+        out_arr[at_hours * STEPS_PER_HOUR - 1] = status
     return out_arr
 
 

@@ -16,19 +16,22 @@ from icu_benchmarks.common.lookups import read_var_ref_table
 from icu_benchmarks.common.processing import map_df
 from icu_benchmarks.common.reference_data import read_static
 from icu_benchmarks.common.resampling import irregular_to_gridded
-from icu_benchmarks.data import imputation_for_endpoints, extended_general_table_generation, endpoint_generation, labels, schemata
+from icu_benchmarks.common.constants import MORTALITY_NAME, CIRC_FAILURE_NAME, RESP_FAILURE_NAME, URINE_REG_NAME, \
+    URINE_BINARY_NAME, PHENOTYPING_NAME, LOS_NAME
+from icu_benchmarks.data import imputation_for_endpoints, extended_general_table_generation, endpoint_generation, \
+    labels, schemata
 from icu_benchmarks.data.preprocess import to_ml
 from icu_benchmarks.models.train import train_with_gin
 from icu_benchmarks.models.utils import get_bindings_and_params
 from icu_benchmarks.preprocessing import merge
 
-default_endpoints = ('Mortality_At24Hours',
-                     'Dynamic_CircFailure_12Hours',
-                     'Dynamic_RespFailure_12Hours',
-                     'Dynamic_UrineOutput_2Hours_Reg',
-                     'Dynamic_UrineOutput_2Hours_Binary',
-                     'Phenotyping_APACHEGroup',
-                     'Remaining_LOS_Reg')
+default_endpoints = (MORTALITY_NAME,
+                     CIRC_FAILURE_NAME,
+                     RESP_FAILURE_NAME,
+                     URINE_REG_NAME,
+                     URINE_BINARY_NAME,
+                     PHENOTYPING_NAME,
+                     LOS_NAME)
 
 default_seed = 42
 
@@ -73,7 +76,6 @@ def build_parser():
                                       default='ffill', required=False, type=str,
                                       help="Type of imputation. Default: 'ffill' ")
 
-
     model_arguments = parent_parser.add_argument_group('Model arguments')
     model_arguments.add_argument('-l', '--logdir', dest="logdir",
                                  required=False, type=str,
@@ -111,59 +113,59 @@ def build_parser():
                                  help="Embedding size of the input data")
     model_arguments.add_argument('-kernel', '--kernel', default=None,
                                  dest="kernel", required=False, nargs='+',
-                                 type=int, help = "Kernel size for Temporal CNN")
+                                 type=int, help="Kernel size for Temporal CNN")
     model_arguments.add_argument('-do', '--do', default=None, dest="do",
                                  required=False, nargs='+', type=float,
-                                 help = "Dropout probability for the Transformer block")
+                                 help="Dropout probability for the Transformer block")
 
     model_arguments.add_argument('-do_att', '--do_att', default=None, dest="do_att",
                                  required=False, nargs='+', type=float,
-                                 help = "Dropout probability for the Self-Attention layer only")
+                                 help="Dropout probability for the Self-Attention layer only")
 
     model_arguments.add_argument('-depth', '--depth', default=None,
                                  dest="depth", required=False, nargs='+',
                                  type=int,
-                                 help = "Number of layers in Neyral Network")
+                                 help="Number of layers in Neyral Network")
     model_arguments.add_argument('-heads', '--heads', default=None,
                                  dest="heads", required=False, nargs='+',
-                                 type=int, 
-                                 help = "Number of heads in Sel-Attention layer")
+                                 type=int,
+                                 help="Number of heads in Sel-Attention layer")
     model_arguments.add_argument('-latent', '--latent', default=None,
                                  dest="latent", required=False, nargs='+',
-                                 type=int, 
-                                 help = "Dimension of fully-conected layer in Transformer block")
+                                 type=int,
+                                 help="Dimension of fully-conected layer in Transformer block")
     model_arguments.add_argument('-horizon', '--horizon', default=None,
                                  dest="horizon", required=False, nargs='+',
-                                 type=int, 
-                                 help = "History length for Neural Networks")
+                                 type=int,
+                                 help="History length for Neural Networks")
     model_arguments.add_argument('-hidden', '--hidden', default=None,
                                  dest="hidden", required=False, nargs='+',
-                                 type=int, 
-                                 help = "Dimensionality of hidden layer in Neural Networks")
+                                 type=int,
+                                 help="Dimensionality of hidden layer in Neural Networks")
     model_arguments.add_argument('--subsample-data', default=None,
                                  dest="subsample_data", required=False, nargs='+',
-                                 type=float, 
-                                 help = "Subsample parameter in Gradient Boosting, subsample ratio of the training instance")
+                                 type=float,
+                                 help="Subsample parameter in Gradient Boosting, subsample ratio of the training instance")
     model_arguments.add_argument('--subsample-feat', default=None,
                                  dest="subsample_feat", required=False, nargs='+',
-                                 type=float, 
-                                 help = "Colsample_bytree parameter in Gradient Boosting, subsample ratio of columns when constructing each tree")
+                                 type=float,
+                                 help="Colsample_bytree parameter in Gradient Boosting, subsample ratio of columns when constructing each tree")
     model_arguments.add_argument('--regularization', default=None,
                                  dest="regularization", required=False, nargs='+',
                                  type=float,
                                  help="L1 or L2 regularization type")
     model_arguments.add_argument('-rs', '--random-search', default=False,
                                  dest="rs", required=False, type=bool,
-                                 help = "Random Search setting")
+                                 help="Random Search setting")
     model_arguments.add_argument('-c_parameter', '--c_parameter', default=None,
                                  dest="c_parameter", required=False, nargs='+',
-                                 help = "C parameter in Logistic Regression")
+                                 help="C parameter in Logistic Regression")
     model_arguments.add_argument('-penalty', '--penalty', default=None,
                                  dest="penalty", required=False, nargs='+',
-                                 help = "Penalty parameter for Logistic Regression")
+                                 help="Penalty parameter for Logistic Regression")
     model_arguments.add_argument('--loss-weight', default=None,
                                  dest="loss_weight", required=False, nargs='+', type=str,
-                                 help = "Loss weigthing parameter")
+                                 help="Loss weigthing parameter")
     model_arguments.add_argument('-o', '--overwrite', default=False,
                                  dest="overwrite", required=False, type=bool,
                                  help="Boolean to overwrite previous model in logdir")
@@ -172,7 +174,7 @@ def build_parser():
                                  help="Path to the gin train config file.")
 
     parser_evaluate = subparsers.add_parser('evaluate', help='evaluate',
-                                         parents=[parent_parser])
+                                            parents=[parent_parser])
 
     parser_train = subparsers.add_parser('train', help='train',
                                          parents=[parent_parser])
@@ -373,7 +375,7 @@ def main(my_args=tuple(sys.argv[1:])):
             seeds = args.seed
         if not load_weights:
             gin_bindings, log_dir = get_bindings_and_params(args)
-        else :
+        else:
             gin_bindings, _ = get_bindings_and_params(args)
             log_dir = args.logdir
         if args.rs:
@@ -407,7 +409,7 @@ def main(my_args=tuple(sys.argv[1:])):
             for seed in seeds:
                 if not load_weights:
                     log_dir_seed = os.path.join(log_dir, str(seed))
-                train_with_gin(model_dir=log_dir_seed, 
+                train_with_gin(model_dir=log_dir_seed,
                                overwrite=args.overwrite,
                                load_weights=load_weights,
                                gin_config_files=args.config,
