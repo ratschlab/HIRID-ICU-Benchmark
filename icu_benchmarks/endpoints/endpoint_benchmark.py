@@ -7,64 +7,47 @@ import math
 import os
 import os.path
 import pickle
-import random
 import sys
-import ipdb
 
-import lightgbm as lgbm
 import numpy as np
 import pandas as pd
 import skfda.preprocessing.smoothing.kernel_smoothers as skks
 import skfda.representation.grid as skgrid
-import sklearn.linear_model as sklm
-import sklearn.metrics as skmetrics
-import sklearn.preprocessing as skpproc
+from icu_benchmarks.common.constants import STEPS_PER_HOUR, LEVEL1_RATIO_RESP, LEVEL2_RATIO_RESP, LEVEL3_RATIO_RESP, \
+    FRACTION_TSH_CIRC, FRACTION_TSH_RESP, DATETIME, PID, REL_DATETIME, SPO2_NORMAL_VALUE, VENT_ETCO2_TSH, \
+    NIV_VENT_MODE, SUPPOX_TO_FIO2
 
+
+PAO2_MIX_SCALE = 57 ** 2
+MINS_PER_STEP = 60 // STEPS_PER_HOUR
+MAX_SUPPOX_KEY = np.array(list(SUPPOX_TO_FIO2.keys())).max()
+MAX_SUPPOX_TO_FIO2_VAL = SUPPOX_TO_FIO2[MAX_SUPPOX_KEY]
 
 def load_pickle(fpath):
     """ Given a file path pointing to a pickle file, yields the object pickled in this file"""
     with open(fpath, 'rb') as fp:
         return pickle.load(fp)
 
-
-SUPPOX_TO_FIO2 = {
-    0: 21,
-    1: 26,
-    2: 34,
-    3: 39,
-    4: 45,
-    5: 49,
-    6: 54,
-    7: 57,
-    8: 58,
-    9: 63,
-    10: 66,
-    11: 67,
-    12: 69,
-    13: 70,
-    14: 73,
-    15: 75}
-
-
-def mix_real_est_pao2(pao2_col, pao2_meas_cnt, pao2_est_arr, bandwidth=None):
+# UT : Mid
+def mix_real_est_pao2(pao2_col, pao2_meas_cnt, pao2_est_arr):
     """ Mix real PaO2 measurement and PaO2 estimates using a Gaussian kernel"""
     final_pao2_arr = np.copy(pao2_est_arr)
-    sq_scale = 57 ** 2  # 1 hour has mass 1/3 approximately
+    sq_scale = PAO2_MIX_SCALE  # 1 hour has mass 1/3 approximately
 
     for idx in range(final_pao2_arr.size):
         meas_ref = pao2_meas_cnt[idx]
         real_val = None
         real_val_dist = None
 
-        # Search forward and backward with priority giving to backward if equi-distant
-        for sidx in range(48):
+        # Search forward and backward with priority giving to backward if equidistant
+        for sidx in range(4 * STEPS_PER_HOUR):
             if not idx - sidx < 0 and pao2_meas_cnt[idx - sidx] < meas_ref:
                 real_val = pao2_col[idx - sidx + 1]
-                real_val_dist = 5 * sidx
+                real_val_dist = MINS_PER_STEP * sidx
                 break
             elif not idx + sidx >= final_pao2_arr.size and pao2_meas_cnt[idx + sidx] > meas_ref:
                 real_val = pao2_col[idx + sidx]
-                real_val_dist = 5 * sidx
+                real_val_dist = MINS_PER_STEP * sidx
                 break
 
         if real_val is not None:
@@ -74,203 +57,12 @@ def mix_real_est_pao2(pao2_col, pao2_meas_cnt, pao2_est_arr, bandwidth=None):
 
     return final_pao2_arr
 
-
-def perf_regression_model(X_list, y_list, aux_list, configs=None):
-    """ Initial test of a regression model to estimate the current Pao2 based
-        on 6 features of the past. Also pass FiO2 to calculate resulting mistakes in
-        the P/F ratio"""
-
-    logging.info("Testing regression model for PaO2...")
-
-    # Partition the data into 3 sets and run SGD regressor
-    X_train = X_list[:int(0.6 * len(X_list))]
-    X_train = np.vstack(X_train)
-    y_train = np.concatenate(y_list[:int(0.6 * len(y_list))])
-    X_val = X_list[int(0.6 * len(X_list)):int(0.8 * len(X_list))]
-    X_val = np.vstack(X_val)
-    y_val = np.concatenate(y_list[int(0.6 * len(y_list)):int(0.8 * len(y_list))])
-    X_test = X_list[int(0.8 * len(X_list)):]
-    X_test = np.vstack(X_test)
-    y_test = np.concatenate(y_list[int(0.8 * len(y_list)):])
-
-    fio2_test = np.concatenate(aux_list[int(0.8 * len(aux_list)):])
-
-    if configs["sur_model_type"] == "linear":
-        scaler = skpproc.StandardScaler()
-        X_train_std = scaler.fit_transform(X_train)
-        X_val_std = scaler.transform(X_val)
-        X_test_std = scaler.transform(X_test)
-
-    if configs["sur_model_type"] == "linear":
-        alpha_cands = [0.0001, 0.001, 0.01, 0.1, 1.0]
-    elif configs["sur_model_type"] == "lgbm":
-        alpha_cands = [32]
-
-    best_alpha = None
-    best_score = np.inf
-
-    # Search for the best model on the validation set
-    for alpha in alpha_cands:
-        logging.info("Testing alpha: {}".format(alpha))
-
-        if configs["sur_model_type"] == "linear":
-            lmodel_cand = sklm.SGDRegressor(alpha=alpha, random_state=2021)
-        elif configs["sur_model_type"] == "lgbm":
-            lmodel_cand = lgbm.LGBMRegressor(num_leaves=alpha, learning_rate=0.05, n_estimators=1000,
-                                             random_state=2021)
-
-        if configs["sur_model_type"] == "linear":
-            lmodel_cand.fit(X_train_std, y_train)
-        elif configs["sur_model_type"] == "lgbm":
-            lmodel_cand.fit(X_train_std, y_train, eval_set=(X_val_std, y_val), early_stopping_rounds=20,
-                            eval_metric="mae")
-
-        pred_y_val = lmodel_cand.predict(X_val_std)
-        mae_val = np.median(np.absolute(y_val - pred_y_val))
-        if mae_val < best_score:
-            best_score = mae_val
-            best_alpha = alpha
-
-    lmodel = sklm.SGDRegressor(alpha=best_alpha, random_state=2021)
-    lmodel.fit(X_train_std, y_train)
-    pred_y_test = lmodel.predict(X_test_std)
-
-    mae_test = skmetrics.mean_absolute_error(y_test, pred_y_test)
-    logging.info("Mean absolute error in test set: {:.3f}".format(mae_test))
-
-
-def percentile_smooth(signal_col, percentile, win_scope_mins):
-    """ Window percentile smoother, where percentile is in the interval [0,100]"""
-    out_arr = np.zeros_like(signal_col)
-    mins_per_window = 5
-    search_range = int(win_scope_mins / mins_per_window / 2)
-    for jdx in range(out_arr.size):
-        search_arr = signal_col[max(0, jdx - search_range):min(out_arr.size, jdx + search_range)]
-        out_arr[jdx] = np.percentile(search_arr, percentile)
-    return out_arr
-
-
-def subsample_blocked(val_arr, meas_arr=None, ss_ratio=None, block_length=None, normal_value=None):
-    """ Subsample blocked with ratio and block length"""
-    val_arr_out = np.copy(val_arr)
-    meas_arr_out = np.copy(meas_arr)
-    meas_idxs = []
-    n_meas = 0
-
-    for idx in range(meas_arr.size):
-        if meas_arr[idx] > n_meas:
-            meas_idxs.append(idx)
-            n_meas += 1
-
-    if len(meas_idxs) == 0:
-        return (val_arr_out, meas_arr_out)
-
-    meas_select = int((1 - ss_ratio) * len(meas_idxs))
-    begin_select = meas_select // block_length
-    feas_begins = [meas_idxs[idx] for idx in np.arange(0, len(meas_idxs), block_length)]
-    sel_meas_begins = sorted(random.sample(feas_begins, begin_select))
-    sel_meas_delete = []
-    for begin in sel_meas_begins:
-        for add_idx in range(block_length):
-            sel_meas_delete.append(begin + add_idx)
-
-    # Rewrite the measuremnent array with deleted indices
-    for midx, meas_idx in enumerate(meas_idxs):
-        prev_cnt = 0 if meas_idx == 0 else meas_arr_out[meas_idx - 1]
-        revised_cnt = prev_cnt if meas_idx in sel_meas_delete else prev_cnt + 1
-        if midx < len(meas_idxs) - 1:
-            for rewrite_idx in range(meas_idx, meas_idxs[midx + 1]):
-                meas_arr_out[rewrite_idx] = revised_cnt
-        else:
-            for rewrite_idx in range(meas_idx, len(meas_arr_out)):
-                meas_arr_out[rewrite_idx] = revised_cnt
-
-    # Rewrite the value array with deleted indices, with assuming forward filling
-    for midx, meas_idx in enumerate(meas_idxs):
-        prev_val = normal_value if meas_idx == 0 else val_arr_out[meas_idx - 1]
-        cur_val = val_arr_out[meas_idx]
-        revised_value = prev_val if meas_idx in sel_meas_delete else cur_val
-        if midx < len(meas_idxs) - 1:
-            for rewrite_idx in range(meas_idx, meas_idxs[midx + 1]):
-                val_arr_out[rewrite_idx] = revised_value
-        else:
-            for rewrite_idx in range(meas_idx, len(meas_arr_out)):
-                val_arr_out[rewrite_idx] = revised_value
-
-    return (val_arr_out, meas_arr_out)
-
-
-def subsample_individual(val_arr, meas_arr=None, ss_ratio=None, normal_value=None):
-    """ Subsample individual measurements completely randomly with random choice"""
-    val_arr_out = np.copy(val_arr)
-    meas_arr_out = np.copy(meas_arr)
-    meas_idxs = []
-    n_meas = 0
-
-    for idx in range(meas_arr.size):
-        if meas_arr[idx] > n_meas:
-            meas_idxs.append(idx)
-            n_meas += 1
-
-    if len(meas_idxs) == 0:
-        return (val_arr_out, meas_arr_out)
-
-    meas_select = int((1 - ss_ratio) * len(meas_idxs))
-    sel_meas_delete = sorted(random.sample(meas_idxs, meas_select))
-
-    # Rewrite the measuremnent array with deleted indices
-    for midx, meas_idx in enumerate(meas_idxs):
-        prev_cnt = 0 if meas_idx == 0 else meas_arr_out[meas_idx - 1]
-        revised_cnt = prev_cnt if meas_idx in sel_meas_delete else prev_cnt + 1
-        if midx < len(meas_idxs) - 1:
-            for rewrite_idx in range(meas_idx, meas_idxs[midx + 1]):
-                meas_arr_out[rewrite_idx] = revised_cnt
-        else:
-            for rewrite_idx in range(meas_idx, len(meas_arr_out)):
-                meas_arr_out[rewrite_idx] = revised_cnt
-
-    # Rewrite the value array with deleted indices, with assuming forward filling
-    for midx, meas_idx in enumerate(meas_idxs):
-        prev_val = normal_value if meas_idx == 0 else val_arr_out[meas_idx - 1]
-        cur_val = val_arr_out[meas_idx]
-        revised_value = prev_val if meas_idx in sel_meas_delete else cur_val
-        if midx < len(meas_idxs) - 1:
-            for rewrite_idx in range(meas_idx, meas_idxs[midx + 1]):
-                val_arr_out[rewrite_idx] = revised_value
-        else:
-            for rewrite_idx in range(meas_idx, len(meas_arr_out)):
-                val_arr_out[rewrite_idx] = revised_value
-
-    return (val_arr_out, meas_arr_out)
-
-
-def merge_short_vent_gaps(vent_status_arr, short_gap_hours):
-    """ Merge short gaps in the ventilation status array"""
-    in_gap = False
-    gap_length = 0
-
-    for idx in range(len(vent_status_arr)):
-        cur_state = vent_status_arr[idx]
-        if in_gap and (cur_state == 0.0 or np.isnan(cur_state)):
-            gap_length += 5
-        elif not in_gap and (cur_state == 0.0 or np.isnan(cur_state)):
-            in_gap = True
-            in_gap_idx = idx
-            gap_length = 5
-        elif in_gap and cur_state == 1.0:
-            in_gap = False
-            after_gap_status = cur_state
-            if gap_length / 60. <= short_gap_hours:
-                vent_status_arr[in_gap_idx:idx] = 1.0
-
-    return vent_status_arr
-
-
+# UT : Mid
 def kernel_smooth_arr(input_arr, bandwidth=None):
     """ Kernel smooth an input array with a Nadaraya-Watson kernel smoother"""
     output_arr = np.copy(input_arr)
     fin_arr = output_arr[np.isfinite(output_arr)]
-    time_axis = 5 * np.arange(len(output_arr))
+    time_axis = MINS_PER_STEP * np.arange(len(output_arr))
     fin_time = time_axis[np.isfinite(output_arr)]
 
     # Return the unsmoothed array if fewer than 2 observations
@@ -284,9 +76,71 @@ def kernel_smooth_arr(input_arr, bandwidth=None):
     output_arr[np.isfinite(output_arr)] = output_smoothed
     return output_arr
 
+# UT : Mid
+def percentile_smooth(signal_col, percentile, win_scope_mins):
+    """ Window percentile smoother, where percentile is in the interval [0,100]"""
+    out_arr = np.zeros_like(signal_col)
+    mins_per_window = MINS_PER_STEP
+    search_range = int(win_scope_mins / mins_per_window / 2)
+    for jdx in range(out_arr.size):
+        search_arr = signal_col[max(0, jdx - search_range):min(out_arr.size, jdx + search_range)]
+        out_arr[jdx] = np.percentile(search_arr, percentile)
+    return out_arr
+
+# UT : HIGH
+# TODO: Refactor
+def merge_short_vent_gaps(vent_status_arr, short_gap_hours):
+    """ Merge short gaps in the ventilation status array"""
+    in_gap = False
+    gap_length = 0
+
+    for idx in range(len(vent_status_arr)):
+        cur_state = vent_status_arr[idx]
+        if in_gap and (cur_state == 0.0 or np.isnan(cur_state)):
+            gap_length += MINS_PER_STEP
+        elif not in_gap and (cur_state == 0.0 or np.isnan(cur_state)):
+            in_gap = True
+            in_gap_idx = idx
+            gap_length = MINS_PER_STEP
+        elif in_gap and cur_state == 1.0:
+            in_gap = False
+            if gap_length / 60. <= short_gap_hours:
+                vent_status_arr[in_gap_idx:idx] = 1.0
+
+    return vent_status_arr
+
+# UT : VERY HIGH
+def assign_resp_levels(event_status_arr=None, pf_event_est_arr=None, vent_status_arr=None,
+                       ratio_arr=None, sz_window=None, peep_status_arr=None, peep_threshold_arr=None,
+                       offset_back_windows=None):
+    """Now label based on the array of estimated Horowitz indices"""
+    for idx in range(0, len(event_status_arr) - offset_back_windows):
+        est_idx = pf_event_est_arr[idx:min(len(ratio_arr), idx + sz_window)]
+        est_vent = vent_status_arr[idx:min(len(ratio_arr), idx + sz_window)]
+        est_peep_dense = peep_status_arr[idx:min(len(ratio_arr), idx + sz_window)]
+        est_peep_threshold = peep_threshold_arr[idx:min(len(ratio_arr), idx + sz_window)]
+
+        if np.sum((est_idx <= LEVEL3_RATIO_RESP) & (
+                (est_vent == 0.0) | (est_vent == 1.0) & (est_peep_dense == 0.0) | (est_vent == 1.0) & (
+                est_peep_dense == 1.0) & (est_peep_threshold == 1.0))) >= FRACTION_TSH_RESP * len(est_idx):
+            event_status_arr[idx] = "event_3"
+        elif np.sum((est_idx <= LEVEL2_RATIO_RESP) & (
+                (est_vent == 0.0) | (est_vent == 1.0) & (est_peep_dense == 0.0) | (est_vent == 1.0) & (
+                est_peep_dense == 1.0) & (est_peep_threshold == 1.0))) >= FRACTION_TSH_RESP * len(est_idx):
+            event_status_arr[idx] = "event_2"
+        elif np.sum((est_idx <= LEVEL1_RATIO_RESP) & (
+                (est_vent == 0.0) | (est_vent == 1.0) & (est_peep_dense == 0.0) | (est_vent == 1.0) & (
+                est_peep_dense == 1.0) & (est_peep_threshold == 1.0))) >= FRACTION_TSH_RESP * len(est_idx):
+            event_status_arr[idx] = "event_1"
+        elif np.sum(np.isnan(est_idx)) < FRACTION_TSH_RESP * len(est_idx):
+            event_status_arr[idx] = "event_0"
+
+    return event_status_arr
+
+# UT : HIGH
 def correct_right_edge_l0(event_status_arr=None, pf_event_est_arr=None,
                           offset_back_windows=None):
-    '''Correct right edges of event 0 (correct level to level 0)'''
+    """Correct right edges of event 0 (correct level to level 0)"""
     on_right_edge = False
     in_event = False
     for idx in range(0, len(event_status_arr) - offset_back_windows):
@@ -297,16 +151,17 @@ def correct_right_edge_l0(event_status_arr=None, pf_event_est_arr=None,
             in_event = False
             on_right_edge = True
         if on_right_edge:
-            if pf_event_est_arr[idx] < 300:
+            if pf_event_est_arr[idx] < LEVEL1_RATIO_RESP:
                 on_right_edge = False
             else:
-                event_status_arr[idx] = "event_0"    
+                event_status_arr[idx] = "event_0"
 
     return event_status_arr
 
+# UT : HIGH
 def correct_right_edge_l1(event_status_arr=None, pf_event_est_arr=None,
                           offset_back_windows=None):
-    '''Correct right edges of event 1 (correct to level 1)'''
+    """Correct right edges of event 1 (correct to level 1)"""
     on_right_edge = False
     in_event = False
     for idx in range(0, len(event_status_arr) - offset_back_windows):
@@ -317,17 +172,17 @@ def correct_right_edge_l1(event_status_arr=None, pf_event_est_arr=None,
             in_event = False
             on_right_edge = True
         if on_right_edge:
-            if pf_event_est_arr[idx] < 200 or pf_event_est_arr[idx] >= 300:
+            if pf_event_est_arr[idx] < LEVEL2_RATIO_RESP or pf_event_est_arr[idx] >= LEVEL1_RATIO_RESP:
                 on_right_edge = False
             else:
                 event_status_arr[idx] = "event_1"
 
     return event_status_arr
 
-
+# UT : HIGH
 def correct_right_edge_l2(event_status_arr=None, pf_event_est_arr=None,
                           offset_back_windows=None):
-    '''Correct right edges of event 2 (correct to level 2)'''
+    """Correct right edges of event 2 (correct to level 2)"""
     on_right_edge = False
     in_event = False
     for idx in range(0, len(event_status_arr) - offset_back_windows):
@@ -338,18 +193,18 @@ def correct_right_edge_l2(event_status_arr=None, pf_event_est_arr=None,
             in_event = False
             on_right_edge = True
         if on_right_edge:
-            if pf_event_est_arr[idx] < 100 or pf_event_est_arr[idx] >= 200:
+            if pf_event_est_arr[idx] < LEVEL3_RATIO_RESP or pf_event_est_arr[idx] >= LEVEL2_RATIO_RESP:
                 on_right_edge = False
             else:
                 event_status_arr[idx] = "event_2"
 
     return event_status_arr
 
-
+# UT : HIGH
 def correct_right_edge_l3(event_status_arr=None, pf_event_est_arr=None,
                           offset_back_windows=None):
     # Correct right edges of event 3 (correct to level 3)
-    
+
     on_right_edge = False
     in_event = False
     for idx in range(0, len(event_status_arr) - offset_back_windows):
@@ -360,39 +215,10 @@ def correct_right_edge_l3(event_status_arr=None, pf_event_est_arr=None,
             in_event = False
             on_right_edge = True
         if on_right_edge:
-            if pf_event_est_arr[idx] >= 100:
+            if pf_event_est_arr[idx] >= LEVEL3_RATIO_RESP:
                 on_right_edge = False
             else:
                 event_status_arr[idx] = "event_3"
-
-    return event_status_arr
-
-
-def assign_resp_levels(event_status_arr=None, pf_event_est_arr=None, vent_status_arr=None,
-                       ratio_arr=None, sz_window=None,
-                       peep_status_arr=None, peep_threshold_arr=None, offset_back_windows=None):
-    '''Now label based on the array of estimated Horowitz indices'''
-    for idx in range(0, len(event_status_arr) - offset_back_windows):
-        est_idx = pf_event_est_arr[idx:min(len(ratio_arr), idx + sz_window)]
-        est_vent = vent_status_arr[idx:min(len(ratio_arr), idx + sz_window)]
-        est_peep_dense = peep_status_arr[idx:min(len(ratio_arr), idx + sz_window)]
-        est_peep_threshold = peep_threshold_arr[idx:min(len(ratio_arr), idx + sz_window)]
-
-        if np.sum((est_idx <= 100) & (
-                (est_vent == 0.0) | (est_vent == 1.0) & (est_peep_dense == 0.0) | (est_vent == 1.0) & (
-                est_peep_dense == 1.0) & (est_peep_threshold == 1.0))) >= 2 / 3 * len(est_idx):
-            event_status_arr[idx] = "event_3"
-        elif np.sum((est_idx <= 200) & (
-                (est_vent == 0.0) | (est_vent == 1.0) & (est_peep_dense == 0.0) | (est_vent == 1.0) & (
-                est_peep_dense == 1.0) & (est_peep_threshold == 1.0))) >= 2 / 3 * len(est_idx):
-            event_status_arr[idx] = "event_2"
-        elif np.sum((est_idx <= 300) & (
-                (est_vent == 0.0) | (est_vent == 1.0) & (est_peep_dense == 0.0) | (est_vent == 1.0) & (
-                est_peep_dense == 1.0) & (est_peep_threshold == 1.0))) >= 2 / 3 * len(est_idx):
-            event_status_arr[idx] = "event_1"
-        elif np.sum(np.isnan(est_idx)) < 2 / 3 * len(est_idx):
-            event_status_arr[idx] = "event_0"
-
 
     return event_status_arr
 
@@ -404,12 +230,12 @@ def assemble_out_df(time_col=None, rel_time_col=None, pid_col=None, event_status
                     ratio_arr=None, sur_ratio_arr=None, vent_status_arr=None, vent_period_arr=None,
                     vent_votes_arr=None, vent_votes_etco2_arr=None, vent_votes_ventgroup_arr=None,
                     vent_votes_tv_arr=None, vent_votes_airway_arr=None, circ_status_arr=None):
-    ''' Assembles the complete data-frame from the constructed endpoint and status arrays'''
+    """ Assembles the complete data-frame from the constructed endpoint and status arrays"""
     df_out_dict = {}
 
-    df_out_dict["datetime"] = time_col
-    df_out_dict["rel_datetime"] = rel_time_col
-    df_out_dict["patientid"] = pid_col
+    df_out_dict[DATETIME] = time_col
+    df_out_dict[REL_DATETIME] = rel_time_col
+    df_out_dict[PID] = pid_col
     status_list = list(map(lambda raw_str: raw_str.decode("unicode_escape"), event_status_arr.tolist()))
     df_out_dict["resp_failure_status"] = status_list
     df_out_dict["resp_failure_status_relabel"] = relabel_arr
@@ -443,8 +269,8 @@ def assemble_out_df(time_col=None, rel_time_col=None, pid_col=None, event_status
     df_out = pd.DataFrame(df_out_dict)
     return df_out
 
-
-
+# UT : Mid
+# TODO : Refactor
 def delete_short_vent_events(vent_status_arr, short_event_hours):
     """ Delete short events in the ventilation status array"""
     in_event = False
@@ -452,10 +278,10 @@ def delete_short_vent_events(vent_status_arr, short_event_hours):
     for idx in range(len(vent_status_arr)):
         cur_state = vent_status_arr[idx]
         if in_event and cur_state == 1.0:
-            event_length += 5
+            event_length += MINS_PER_STEP
         if not in_event and cur_state == 1.0:
             in_event = True
-            event_length = 5
+            event_length = MINS_PER_STEP
             event_start_idx = idx
         if in_event and (cur_state == 0.0 or np.isnan(cur_state)):
             in_event = False
@@ -463,11 +289,12 @@ def delete_short_vent_events(vent_status_arr, short_event_hours):
                 vent_status_arr[event_start_idx:idx] = 0.0
     return vent_status_arr
 
-
+# UT : HIGH
+# TODO Check there is no hardcoding here
 def ellis(x_orig):
     """ ELLIS model converting SpO2 in 100 % units into a PaO2 ABGA
         estimate"""
-    x_orig[np.isnan(x_orig)] = 98  # Normal value assumption
+    x_orig[np.isnan(x_orig)] = SPO2_NORMAL_VALUE  # Normal value assumption
     x = x_orig / 100
     x[x == 1] = 0.999
     exp_base = (11700 / ((1 / x) - 1))
@@ -477,7 +304,7 @@ def ellis(x_orig):
     exp_full = exp_first + exp_second
     return exp_full
 
-
+# UT : HIGH
 def correct_left_edge_vent(vent_status_arr, etco2_meas_cnt, etco2_col):
     """ Corrects the left edge of the ventilation status array, to pin-point the exact conditions"""
     on_left_edge = False
@@ -493,7 +320,7 @@ def correct_left_edge_vent(vent_status_arr, etco2_meas_cnt, etco2_col):
                 in_event = False
                 on_left_edge = False
             elif (idx == 0 and etco2_meas_cnt[idx] > 0 or etco2_meas_cnt[idx] - etco2_meas_cnt[idx - 1] >= 1) and \
-                    etco2_col[idx] > 0.5:
+                    etco2_col[idx] > VENT_ETCO2_TSH:
                 on_left_edge = False
             else:
                 vent_status_arr[idx] = 0.0
@@ -501,6 +328,7 @@ def correct_left_edge_vent(vent_status_arr, etco2_meas_cnt, etco2_col):
     return vent_status_arr
 
 
+# UT : HIGH
 def delete_small_continuous_blocks(event_arr, block_threshold=None):
     """ Given an event array, deletes small contiguous blocks that are sandwiched between two other blocks, one of which
         is longer, they both have the same label. For the moment we delete blocks smaller than 30 minutes. Note this
@@ -528,7 +356,6 @@ def delete_small_continuous_blocks(event_arr, block_threshold=None):
             block_list.append((new_block, left_block_idx, jdx))
 
     # Merge blocks
-
     while True:
         all_clean = True
         for bidx, block in enumerate(block_list):
@@ -598,109 +425,47 @@ def delete_small_continuous_blocks(event_arr, block_threshold=None):
 
     return (out_arr, diff_arr)
 
-
-def collect_regression_data(spo2_col, spo2_meas_cnt, pao2_col, pao2_meas_cnt, fio2_est_arr,
-                            sao2_col, sao2_meas_cnt, ph_col, ph_meas_cnt):
-    """ Collect regression data at time-stamps where we have a real PaO2 measurement, return
-        partial training X,y pairs for this patient"""
-    X_arr_collect = []
-    y_arr_collect = []
-    aux_collect = []
-    cur_pao2_cnt = 0
-    cur_spo2_cnt = 0
-    cur_sao2_cnt = 0
-    cur_ph_cnt = 0
-    pao2_real_meas = []
-    spo2_real_meas = []
-    sao2_real_meas = []
-    ph_real_meas = []
-
-    for jdx in range(spo2_col.size):
-
-        if spo2_meas_cnt[jdx] > cur_spo2_cnt:
-            spo2_real_meas.append(jdx)
-            cur_spo2_cnt = spo2_meas_cnt[jdx]
-        if sao2_meas_cnt[jdx] > cur_sao2_cnt:
-            sao2_real_meas.append(jdx)
-            cur_sao2_cnt = sao2_meas_cnt[jdx]
-        if ph_meas_cnt[jdx] > cur_ph_cnt:
-            ph_real_meas.append(jdx)
-            cur_ph_cnt = ph_meas_cnt[jdx]
-
-        if pao2_meas_cnt[jdx] > cur_pao2_cnt:
-            pao2_real_meas.append(jdx)
-            cur_pao2_cnt = pao2_meas_cnt[jdx]
-
-            # Only start fitting the model from the 2nd measurement onwards
-            if len(pao2_real_meas) >= 2 and len(spo2_real_meas) >= 2 and len(sao2_real_meas) >= 2 and len(
-                    ph_real_meas) >= 2:
-
-                # Dimensions of features
-                # 0: Last real SpO2 measurement
-                # 1: Last real PaO2 measurement
-                # 2: Last real SaO2 measurement
-                # 3: Last real pH measurement
-                # 4: Time to last real SpO2 measurement
-                # 5: Time to last real PaO2 measurement
-                # 6: Closest SpO2 to last real PaO2 measurement
-                x_vect = np.array([spo2_col[jdx - 1], pao2_col[jdx - 1], sao2_col[jdx - 1], ph_col[jdx - 1],
-                                   jdx - spo2_real_meas[-2], jdx - pao2_real_meas[-2], spo2_col[pao2_real_meas[-2]]])
-                y_val = pao2_col[jdx]
-                aux_val = fio2_est_arr[jdx]
-
-                if np.isnan(x_vect).sum() == 0 and np.isfinite(y_val) and np.isfinite(aux_val):
-                    X_arr_collect.append(x_vect)
-                    y_arr_collect.append(y_val)
-                    aux_collect.append(aux_val)
-
-    if len(X_arr_collect) > 0:
-        X_arr = np.vstack(X_arr_collect)
-        y_arr = np.array(y_arr_collect)
-        aux_arr = np.array(aux_collect)
-        assert (np.isnan(X_arr).sum() == 0 and np.isnan(y_arr).sum() == 0)
-        return (X_arr, y_arr, aux_arr)
-    else:
-        return (None, None, None)
-
+# UT : Mid
 def gen_circ_failure_ep(event_status_arr=None, map_col=None, lactate_col=None, milri_col=None, dobut_col=None,
                         levosi_col=None, theo_col=None,
                         noreph_col=None, epineph_col=None, vaso_col=None):
-    ''' Circulatory failure endpoint definition'''
+    """ Circulatory failure endpoint definition"""
     circ_status_arr = np.zeros_like(map_col)
 
     # Computation of the circulatory failure toy version of the endpoint
     for jdx in range(0, len(event_status_arr)):
-        map_subarr = map_col[max(0, jdx - 12):min(jdx + 12, len(event_status_arr))]
-        lact_subarr = lactate_col[max(0, jdx - 12):min(jdx + 12, len(event_status_arr))]
-        milri_subarr = milri_col[max(0, jdx - 12):min(jdx + 12, len(event_status_arr))]
-        dobut_subarr = dobut_col[max(0, jdx - 12):min(jdx + 12, len(event_status_arr))]
-        levosi_subarr = levosi_col[max(0, jdx - 12):min(jdx + 12, len(event_status_arr))]
-        theo_subarr = theo_col[max(0, jdx - 12):min(jdx + 12, len(event_status_arr))]
-        noreph_subarr = noreph_col[max(0, jdx - 12):min(jdx + 12, len(event_status_arr))]
-        epineph_subarr = epineph_col[max(0, jdx - 12):min(jdx + 12, len(event_status_arr))]
-        vaso_subarr = vaso_col[max(0, jdx - 12):min(jdx + 12, len(event_status_arr))]
+        map_subarr = map_col[max(0, jdx - STEPS_PER_HOUR):min(jdx + STEPS_PER_HOUR, len(event_status_arr))]
+        lact_subarr = lactate_col[max(0, jdx - STEPS_PER_HOUR):min(jdx + STEPS_PER_HOUR, len(event_status_arr))]
+        milri_subarr = milri_col[max(0, jdx - STEPS_PER_HOUR):min(jdx + STEPS_PER_HOUR, len(event_status_arr))]
+        dobut_subarr = dobut_col[max(0, jdx - STEPS_PER_HOUR):min(jdx + STEPS_PER_HOUR, len(event_status_arr))]
+        levosi_subarr = levosi_col[max(0, jdx - STEPS_PER_HOUR):min(jdx + STEPS_PER_HOUR, len(event_status_arr))]
+        theo_subarr = theo_col[max(0, jdx - STEPS_PER_HOUR):min(jdx + STEPS_PER_HOUR, len(event_status_arr))]
+        noreph_subarr = noreph_col[max(0, jdx - STEPS_PER_HOUR):min(jdx + STEPS_PER_HOUR, len(event_status_arr))]
+        epineph_subarr = epineph_col[max(0, jdx - STEPS_PER_HOUR):min(jdx + STEPS_PER_HOUR, len(event_status_arr))]
+        vaso_subarr = vaso_col[max(0, jdx - STEPS_PER_HOUR):min(jdx + STEPS_PER_HOUR, len(event_status_arr))]
         map_crit_arr = ((map_subarr < 65) | (milri_subarr > 0) | (dobut_subarr > 0) | (levosi_subarr > 0) | (
-                theo_subarr > 0) | (noreph_subarr > 0) | \
-                        (epineph_subarr > 0) | (vaso_subarr > 0))
+                    theo_subarr > 0) | (noreph_subarr > 0) | (epineph_subarr > 0) | (vaso_subarr > 0))
         lact_crit_arr = (lact_subarr > 2)
-        if np.sum(map_crit_arr) >= 2 / 3 * len(map_crit_arr) and np.sum(lact_crit_arr) >= 2 / 3 * len(map_crit_arr):
+        map_condition = np.sum(map_crit_arr) >= FRACTION_TSH_CIRC * len(map_crit_arr)
+        lact_condition = np.sum(lact_crit_arr) >= FRACTION_TSH_CIRC * len(map_crit_arr)
+        if map_condition and lact_condition:
             circ_status_arr[jdx] = 1.0
 
     return circ_status_arr
-    
 
+# UT : V HIGH
 def compute_pao2_fio2_estimates(ratio_arr=None, abs_dtime_arr=None, suppox_async_red_ts=None,
-                                fio2_col=None, fio2_meas_cnt=None, etco2_meas_cnt=None,
+                                fio2_col=None, fio2_meas_cnt=None,
                                 pao2_meas_cnt=None, pao2_col=None, spo2_col=None,
-                                abga_window=None, spo2_meas_cnt=None, pao2_est_arr=None,fio2_est_arr=None,
+                                abga_window=None, spo2_meas_cnt=None, pao2_est_arr=None, fio2_est_arr=None,
                                 vent_mode_col=None, vent_status_arr=None, event_count=None,
                                 fio2_avail_arr=None, suppox_max_ffill=None, ambient_fio2=None,
                                 fio2_ambient_arr=None, suppox_val=None, fio2_suppox_arr=None,
-                                sz_fio2_window=None, sz_etco2_window=None, sz_pao2_window=None):
+                                sz_fio2_window=None, sz_pao2_window=None, pao2_avail_col=None):
 
     # Array pointers tracking the current active value of each type
-    suppox_async_red_ptr = -1    
-                                
+    suppox_async_red_ptr = -1
+
     # Label each point in the 30 minute window (except ventilation)
     for jdx in range(0, len(ratio_arr)):
 
@@ -716,14 +481,13 @@ def compute_pao2_fio2_estimates(ratio_arr=None, abs_dtime_arr=None, suppox_async
         # Estimate the current FiO2 value
         bw_fio2 = fio2_col[max(0, jdx - sz_fio2_window):jdx + 1]
         bw_fio2_meas = fio2_meas_cnt[max(0, jdx - sz_fio2_window):jdx + 1]
-        bw_etco2_meas = etco2_meas_cnt[max(0, jdx - sz_etco2_window):jdx + 1]
         fio2_meas = bw_fio2_meas[-1] - bw_fio2_meas[0] > 0
 
         mode_group_est = vent_mode_col[jdx]
 
         # FiO2 is measured since beginning of stay and EtCO2 was measured, we use FiO2 (indefinite forward filling)
         # if ventilation is active or the current estimate of ventilation mode group is NIV.
-        if fio2_meas and (vent_status_arr[jdx] == 1.0 or mode_group_est == 4.0):
+        if fio2_meas and (vent_status_arr[jdx] == 1.0 or mode_group_est == NIV_VENT_MODE):
             event_count["FIO2_AVAILABLE"] += 1
             fio2_val = bw_fio2[-1] / 100
             fio2_avail_arr[jdx] = 1
@@ -734,8 +498,7 @@ def compute_pao2_fio2_estimates(ratio_arr=None, abs_dtime_arr=None, suppox_async
             # No real measurements up to now, or the last real measurement
             # was more than 8 hours away.
             if suppox_async_red_ptr == -1 or (
-                    cur_time - suppox_async_red_ts[suppox_async_red_ptr]) > np.timedelta64(
-                configs["suppox_max_ffill"], 'h'):
+                    cur_time - suppox_async_red_ts[suppox_async_red_ptr]) > np.timedelta64(suppox_max_ffill, 'h'):
                 event_count["SUPPOX_NO_MEAS_12_HOURS_LIMIT"] += 1
                 fio2_val = ambient_fio2
                 fio2_ambient_arr[jdx] = 1
@@ -750,7 +513,7 @@ def compute_pao2_fio2_estimates(ratio_arr=None, abs_dtime_arr=None, suppox_async
                     fio2_val = suppox_to_fio2(int(suppox)) / 100
                     fio2_suppox_arr[jdx] = 1
                 else:
-                    assert (False, "Impossible condition")
+                    raise Exception("Impossible condition for suppox and fio2")
 
         bw_pao2_meas = pao2_meas_cnt[max(0, jdx - sz_pao2_window):jdx + 1]
         bw_pao2 = pao2_col[max(0, jdx - sz_pao2_window):jdx + 1]
@@ -759,7 +522,7 @@ def compute_pao2_fio2_estimates(ratio_arr=None, abs_dtime_arr=None, suppox_async
         # PaO2 was just measured, just use the value
         if pao2_meas:
             pao2_estimate = bw_pao2[-1]
-            status_cols["pao2_avail"][jdx] = 1
+            pao2_avail_col[jdx] = 1
 
         # Have to forecast PaO2 from a previous SpO2
         else:
@@ -774,23 +537,23 @@ def compute_pao2_fio2_estimates(ratio_arr=None, abs_dtime_arr=None, suppox_async
 
             # Extreme edge case, there was SpO2 measurement in the last 24 hours
             else:
-                spo2_val = 98
+                spo2_val = SPO2_NORMAL_VALUE
                 pao2_estimate = ellis(np.array([spo2_val]))[0]
 
         # Compute the individual components of the Horowitz index
         pao2_est_arr[jdx] = pao2_estimate
         fio2_est_arr[jdx] = fio2_val
 
-        out_dict={}
-        out_dict["pao2_est"]=pao2_est_arr
-        out_dict["fio2_est"]=fio2_est_arr
-        out_dict["fio2_avail"]=fio2_avail_arr
-        out_dict["fio2_suppox"]=fio2_suppox_arr
-        out_dict["fio2_ambient"]=fio2_ambient_arr
+        out_dict = {}
+        out_dict["pao2_est"] = pao2_est_arr
+        out_dict["fio2_est"] = fio2_est_arr
+        out_dict["fio2_avail"] = fio2_avail_arr
+        out_dict["fio2_suppox"] = fio2_suppox_arr
+        out_dict["fio2_ambient"] = fio2_ambient_arr
 
         return out_dict
 
-
+# UT : Mid
 def delete_low_density_hr_gap(vent_status_arr, hr_status_arr, configs=None):
     """ Deletes gaps in ventilation which are caused by likely sensor dis-connections"""
     in_event = False
@@ -822,10 +585,11 @@ def delete_low_density_hr_gap(vent_status_arr, hr_status_arr, configs=None):
 
     return vent_status_arr
 
+
 def load_relevant_columns(df_pid, var_map):
-    ''' Loads the relevant columns from the patient stay'''
-    pat_cols={}
-    
+    """ Loads the relevant columns from the patient stay"""
+    pat_cols = {}
+
     pat_cols["fio2"] = np.array(df_pid[var_map["FiO2"]])
     pat_cols["pao2"] = np.array(df_pid[var_map["PaO2"]])
     pat_cols["etco2"] = np.array(df_pid[var_map["etCO2"]])
@@ -863,71 +627,60 @@ def load_relevant_columns(df_pid, var_map):
 
     # Absolute time
     pat_cols["abs_dtime"] = np.array(df_pid["datetime"])
-    
+
     return pat_cols
 
 
 def initialize_status_cols(fio2_col=None):
-    stat_arr={}
+    stat_arr = {}
 
-    event_status_arr=np.zeros(shape=(fio2_col.size), dtype="<S10")
+    event_status_arr = np.zeros(fio2_col.size, dtype="<S10")
     event_status_arr.fill("UNKNOWN")
     stat_arr["event_status"] = event_status_arr
 
     # Status arrays
-    stat_arr["pao2_avail"] = np.zeros(shape=(fio2_col.size))
-    stat_arr["fio2_avail"] = np.zeros(shape=(fio2_col.size))
-    stat_arr["fio2_suppox"] = np.zeros(shape=(fio2_col.size))
-    stat_arr["fio2_ambient"] = np.zeros(shape=(fio2_col.size))
-    stat_arr["pao2_sao2_model"] = np.zeros(shape=(fio2_col.size))
-    stat_arr["pao2_full_model"] = np.zeros(shape=(fio2_col.size))
+    stat_arr["pao2_avail"] = np.zeros(fio2_col.size)
+    stat_arr["fio2_avail"] = np.zeros(fio2_col.size)
+    stat_arr["fio2_suppox"] = np.zeros(fio2_col.size)
+    stat_arr["fio2_ambient"] = np.zeros(fio2_col.size)
+    stat_arr["pao2_sao2_model"] = np.zeros(fio2_col.size)
+    stat_arr["pao2_full_model"] = np.zeros(fio2_col.size)
 
-    stat_arr["ratio"] = np.zeros(shape=(fio2_col.size))
-    stat_arr["sur_ratio"] = np.zeros(shape=(fio2_col.size))
+    stat_arr["ratio"] = np.zeros(fio2_col.size)
+    stat_arr["sur_ratio"] = np.zeros(fio2_col.size)
 
-    stat_arr["pao2_est"] = np.zeros(shape=(fio2_col.size))
-    stat_arr["fio2_est"] = np.zeros(shape=(fio2_col.size))
-    stat_arr["vent_status"] = np.zeros(shape=(fio2_col.size))
-    
-    readiness_ext_arr = np.zeros(shape=(fio2_col.size))
+    stat_arr["pao2_est"] = np.zeros(fio2_col.size)
+    stat_arr["fio2_est"] = np.zeros(fio2_col.size)
+    stat_arr["vent_status"] = np.zeros(fio2_col.size)
+
+    readiness_ext_arr = np.zeros(fio2_col.size)
     readiness_ext_arr[:] = np.nan
-    stat_arr["readiness_ext"]=readiness_ext_arr
+    stat_arr["readiness_ext"] = readiness_ext_arr
 
     # Votes arrays
-    stat_arr["vent_votes"] = np.zeros(shape=(fio2_col.size))
-    stat_arr["vent_votes_etco2"] = np.zeros(shape=(fio2_col.size))
-    stat_arr["vent_votes_ventgroup"] = np.zeros(shape=(fio2_col.size))
-    stat_arr["vent_votes_tv"] = np.zeros(shape=(fio2_col.size))
-    stat_arr["vent_votes_airway"] = np.zeros(shape=(fio2_col.size))
+    stat_arr["vent_votes"] = np.zeros(fio2_col.size)
+    stat_arr["vent_votes_etco2"] = np.zeros(fio2_col.size)
+    stat_arr["vent_votes_ventgroup"] = np.zeros(fio2_col.size)
+    stat_arr["vent_votes_tv"] = np.zeros(fio2_col.size)
+    stat_arr["vent_votes_airway"] = np.zeros(fio2_col.size)
 
-    stat_arr["peep_status"] = np.zeros(shape=(fio2_col.size))
-    stat_arr["peep_threshold"] = np.zeros(shape=(fio2_col.size))
-    stat_arr["hr_status"] = np.zeros(shape=(fio2_col.size))
-    stat_arr["etco2_status"] = np.zeros(shape=(fio2_col.size))
+    stat_arr["peep_status"] = np.zeros(fio2_col.size)
+    stat_arr["peep_threshold"] = np.zeros(fio2_col.size)
+    stat_arr["hr_status"] = np.zeros(fio2_col.size)
+    stat_arr["etco2_status"] = np.zeros(fio2_col.size)
 
     return stat_arr
 
 
 def suppox_to_fio2(suppox_val):
     """ Conversion of supplemental oxygen to FiO2 estimated value"""
-    if suppox_val > 15:
-        return 75
+    if suppox_val > MAX_SUPPOX_KEY:
+        return MAX_SUPPOX_TO_FIO2_VAL
     else:
         return SUPPOX_TO_FIO2[suppox_val]
 
 
-def conservative_state(state1, state2):
-    """ Given two states, return the lower one """
-    if state1 == state2:
-        return state1
-    for skey in ["event_0", "event_1", "event_2"]:
-        if state1 == skey or state2 == skey:
-            return skey
-    return "event_3"
-
-
 def endpoint_gen_benchmark(configs):
-
     var_map = configs["VAR_IDS"]
     sz_window = configs["length_fw_window"]
     abga_window = configs["length_ABGA_window"]
@@ -969,8 +722,8 @@ def endpoint_gen_benchmark(configs):
         if configs["load_batch_at_once"]:
             df_pid = df_batch[df_batch["patientid"] == pid]
         else:
-            df_pid = pd.read_parquet(os.path.join(imputed_f,"batch_{}.parquet".format(batch_id)),
-                                     filters=[("patientid","=",pid)])
+            df_pid = pd.read_parquet(os.path.join(imputed_f, "batch_{}.parquet".format(batch_id)),
+                                     filters=[("patientid", "=", pid)])
 
         if df_pid.shape[0] == 0:
             logging.info("WARNING: No input data for PID: {}".format(pid))
@@ -993,15 +746,17 @@ def endpoint_gen_benchmark(configs):
 
         # Load patient columns from data-frame
         pat_cols = load_relevant_columns(df_pid, var_map)
-        
+
         if configs["presmooth_spo2"]:
             spo2_col = percentile_smooth(pat_cols["spo2"], configs["spo2_smooth_percentile"],
                                          configs["spo2_smooth_window_size_mins"])
+        else:
+            spo2_col = pat_cols["spo2"]
 
         # Initialize status columns for this patient
-        status_cols= initialize_status_cols(fio2_col=pat_cols["fio2"])
+        status_cols = initialize_status_cols(fio2_col=pat_cols["fio2"])
 
-        # ======================== VENTILATION ================================================================================================
+        # ======================== VENTILATION =========================================================================
 
         # Label each point in the 30 minute window with ventilation
 
@@ -1074,7 +829,8 @@ def endpoint_gen_benchmark(configs):
                 status_cols["hr_status"][jdx] = 1
 
         if configs["detect_hr_gaps"]:
-            vent_status_arr = delete_low_density_hr_gap(status_cols["vent_status"], status_cols["hr_status"], configs=configs)
+            vent_status_arr = delete_low_density_hr_gap(status_cols["vent_status"], status_cols["hr_status"],
+                                                        configs=configs)
 
         if configs["merge_short_vent_gaps"]:
             vent_status_arr = merge_short_vent_gaps(vent_status_arr, configs["short_gap_hours"])
@@ -1094,10 +850,10 @@ def endpoint_gen_benchmark(configs):
         for idx in range(len(vent_period_arr)):
             cur_state = vent_period_arr[idx]
             if in_event and cur_state == 1.0:
-                event_length += 5
+                event_length += MINS_PER_STEP
             if not in_event and cur_state == 1.0:
                 in_event = True
-                event_length = 5
+                event_length = MINS_PER_STEP
                 event_start_idx = idx
             if in_event and (np.isnan(cur_state) or cur_state == 0.0):
                 in_event = False
@@ -1109,7 +865,7 @@ def endpoint_gen_benchmark(configs):
                     search_hr_idx = event_start_idx - 1
                     while search_hr_idx >= 0:
                         if status_cols["hr_status"][search_hr_idx] == 1.0:
-                            hr_gap_length = 5 * (event_start_idx - search_hr_idx)
+                            hr_gap_length = MINS_PER_STEP * (event_start_idx - search_hr_idx)
                             delete_event = True
                             break
                         search_hr_idx -= 1
@@ -1125,30 +881,39 @@ def endpoint_gen_benchmark(configs):
                         vent_period_arr[event_start_idx:idx] = 0.0
 
         # Estimate the FiO2/PaO2 values at indiviual time points
-        est_out_dict=compute_pao2_fio2_estimates(ratio_arr=status_cols["ratio"], abs_dtime_arr=pat_cols["abs_dtime"],
-                                                 suppox_async_red_ts=suppox_async_red_ts, abga_window=abga_window,
-                                                 fio2_col=pat_cols["fio2"],pao2_col=pat_cols["pao2"],spo2_col=pat_cols["spo2"],
-                                                 fio2_meas_cnt=pat_cols["fio2_meas_cnt"],
-                                                 pao2_meas_cnt=pat_cols["pao2_meas_cnt"],spo2_meas_cnt=pat_cols["spo2_meas_cnt"],
-                                                 etco2_meas_cnt=pat_cols["etco2_meas_cnt"],
-                                                 vent_mode_col=pat_cols["vent_mode"], vent_status_arr=vent_status_arr,
-                                                 event_count=event_count, fio2_avail_arr=status_cols["fio2_avail"],
-                                                 suppox_max_ffill=configs["suppox_max_ffill"],pao2_est_arr=status_cols["pao2_est"],
-                                                 fio2_est_arr=status_cols["fio2_est"],
-                                                 ambient_fio2=configs["ambient_fio2"], fio2_ambient_arr=status_cols["fio2_ambient"],
-                                                 suppox_val=suppox_val, fio2_suppox_arr=status_cols["fio2_suppox"],
-                                                 sz_fio2_window=configs["sz_fio2_window"], sz_etco2_window=configs["sz_etco2_window"],
-                                                 sz_pao2_window=configs["sz_pao2_window"])
+        est_out_dict = compute_pao2_fio2_estimates(ratio_arr=status_cols["ratio"], abs_dtime_arr=pat_cols["abs_dtime"],
+                                                   suppox_async_red_ts=suppox_async_red_ts, abga_window=abga_window,
+                                                   fio2_col=pat_cols["fio2"], pao2_col=pat_cols["pao2"],
+                                                   spo2_col=spo2_col,
+                                                   fio2_meas_cnt=pat_cols["fio2_meas_cnt"],
+                                                   pao2_meas_cnt=pat_cols["pao2_meas_cnt"],
+                                                   spo2_meas_cnt=pat_cols["spo2_meas_cnt"],
+                                                   etco2_meas_cnt=pat_cols["etco2_meas_cnt"],
+                                                   vent_mode_col=pat_cols["vent_mode"], vent_status_arr=vent_status_arr,
+                                                   event_count=event_count, fio2_avail_arr=status_cols["fio2_avail"],
+                                                   suppox_max_ffill=configs["suppox_max_ffill"],
+                                                   pao2_est_arr=status_cols["pao2_est"],
+                                                   fio2_est_arr=status_cols["fio2_est"],
+                                                   ambient_fio2=configs["ambient_fio2"],
+                                                   fio2_ambient_arr=status_cols["fio2_ambient"],
+                                                   suppox_val=suppox_val, fio2_suppox_arr=status_cols["fio2_suppox"],
+                                                   sz_fio2_window=configs["sz_fio2_window"],
+                                                   sz_etco2_window=configs["sz_etco2_window"],
+                                                   sz_pao2_window=configs["sz_pao2_window"])
 
-        pao2_est_arr=est_out_dict["pao2_est"]
-        fio2_est_arr=est_out_dict["fio2_est"]
-        fio2_avail_arr=est_out_dict["fio2_avail"]
-        fio2_suppox_arr=est_out_dict["fio2_suppox"]
-        fio2_ambient_arr=est_out_dict["fio2_ambient"]
-        
+        pao2_est_arr = est_out_dict["pao2_est"]
+        fio2_est_arr = est_out_dict["fio2_est"]
+        fio2_avail_arr = est_out_dict["fio2_avail"]
+        fio2_suppox_arr = est_out_dict["fio2_suppox"]
+        fio2_ambient_arr = est_out_dict["fio2_ambient"]
+
         # Smooth individual components of the P/F ratio estimate
         if configs["kernel_smooth_estimate_pao2"]:
             pao2_est_arr = kernel_smooth_arr(est_out_dict["pao2_est"], bandwidth=configs["smoothing_bandwidth"])
+
+        # Convex combination of the estimate
+        if configs["mix_real_estimated_pao2"]:
+            pao2_est_arr = mix_real_est_pao2(pat_cols["pao2"], pat_cols["pao2_meas_cnt"], pao2_est_arr)
 
         if configs["kernel_smooth_estimate_fio2"]:
             fio2_est_arr = kernel_smooth_arr(est_out_dict["fio2_est"], bandwidth=configs["smoothing_bandwidth"])
@@ -1157,12 +922,7 @@ def endpoint_gen_benchmark(configs):
         pao2_sur_est = np.copy(pao2_est_arr)
         assert (np.sum(np.isnan(pao2_sur_est)) == 0)
 
-        # Convex combination of the estimate
-        if configs["mix_real_estimated_pao2"]:
-            pao2_est_arr = mix_real_est_pao2(pat_cols["pao2"], pat_cols["pao2_meas_cnt"], pao2_est_arr,
-                                             bandwidth=configs["smoothing_bandwidth"])
-
-        ratio_arr=np.divide(pao2_est_arr,fio2_est_arr)
+        ratio_arr = np.divide(pao2_est_arr, fio2_est_arr)
 
         # Post-smooth Horowitz index
         if configs["post_smooth_pf_ratio"]:
@@ -1173,50 +933,58 @@ def endpoint_gen_benchmark(configs):
         elif configs["pao2_version"] == "original":
             assert (False)
 
-        event_status_arr=assign_resp_levels(event_status_arr=status_cols["event_status"], pf_event_est_arr=pf_event_est_arr,
-                                            vent_status_arr=vent_status_arr, peep_status_arr=status_cols["peep_status"],
-                                            ratio_arr=ratio_arr, sz_window=sz_window,
-                                            peep_threshold_arr=status_cols["peep_threshold"], offset_back_windows=configs["offset_back_windows"])
+        event_status_arr = assign_resp_levels(event_status_arr=status_cols["event_status"],
+                                              pf_event_est_arr=pf_event_est_arr,
+                                              vent_status_arr=vent_status_arr,
+                                              peep_status_arr=status_cols["peep_status"],
+                                              ratio_arr=ratio_arr, sz_window=sz_window,
+                                              peep_threshold_arr=status_cols["peep_threshold"],
+                                              offset_back_windows=configs["offset_back_windows"])
 
         # Re-traverse the array and correct the right edges of events
-        event_status_arr=correct_right_edge_l0(event_status_arr=event_status_arr, pf_event_est_arr=pf_event_est_arr,
-                                               offset_back_windows=configs["offset_back_windows"])
-        event_status_arr=correct_right_edge_l1(event_status_arr=event_status_arr, pf_event_est_arr=pf_event_est_arr,
-                                               offset_back_windows=configs["offset_back_windows"])
-        event_status_arr=correct_right_edge_l2(event_status_arr=event_status_arr, pf_event_est_arr=pf_event_est_arr,
-                                               offset_back_windows=configs["offset_back_windows"])
-        event_status_arr=correct_right_edge_l3(event_status_arr=event_status_arr, pf_event_est_arr=pf_event_est_arr,
-                                               offset_back_windows=configs["offset_back_windows"])
+        event_status_arr = correct_right_edge_l0(event_status_arr=event_status_arr, pf_event_est_arr=pf_event_est_arr,
+                                                 offset_back_windows=configs["offset_back_windows"])
+        event_status_arr = correct_right_edge_l1(event_status_arr=event_status_arr, pf_event_est_arr=pf_event_est_arr,
+                                                 offset_back_windows=configs["offset_back_windows"])
+        event_status_arr = correct_right_edge_l2(event_status_arr=event_status_arr, pf_event_est_arr=pf_event_est_arr,
+                                                 offset_back_windows=configs["offset_back_windows"])
+        event_status_arr = correct_right_edge_l3(event_status_arr=event_status_arr, pf_event_est_arr=pf_event_est_arr,
+                                                 offset_back_windows=configs["offset_back_windows"])
 
-        circ_status_arr=gen_circ_failure_ep(event_status_arr=event_status_arr,
-                                            map_col=pat_cols["map"], lactate_col=pat_cols["lactate"],
-                                            milri_col=pat_cols["milri"], dobut_col=pat_cols["dobut"],
-                                            levosi_col=pat_cols["levosi"], theo_col=pat_cols["theo"],
-                                            noreph_col=pat_cols["noreph"], epineph_col=pat_cols["epineph"],
-                                            vaso_col=pat_cols["vaso"])
+        circ_status_arr = gen_circ_failure_ep(event_status_arr=event_status_arr,
+                                              map_col=pat_cols["map"], lactate_col=pat_cols["lactate"],
+                                              milri_col=pat_cols["milri"], dobut_col=pat_cols["dobut"],
+                                              levosi_col=pat_cols["levosi"], theo_col=pat_cols["theo"],
+                                              noreph_col=pat_cols["noreph"], epineph_col=pat_cols["epineph"],
+                                              vaso_col=pat_cols["vaso"])
 
         # Traverse the array and delete short gap
         event_status_arr, relabel_arr = delete_small_continuous_blocks(event_status_arr,
-                                                                       block_threshold=configs["pf_event_merge_threshold"])
+                                                                       block_threshold=configs[
+                                                                           "pf_event_merge_threshold"])
 
         time_col = np.array(df_pid["datetime"])
         rel_time_col = np.array(df_pid["rel_datetime"])
         pid_col = np.array(df_pid["patientid"])
 
-        df_out=assemble_out_df(time_col=time_col, rel_time_col=rel_time_col, pid_col=pid_col, event_status_arr=event_status_arr,
-                               relabel_arr=relabel_arr, fio2_avail_arr=fio2_avail_arr, fio2_suppox_arr=fio2_suppox_arr,
-                               fio2_ambient_arr=fio2_ambient_arr, fio2_est_arr=fio2_est_arr, pao2_est_arr=pao2_est_arr, pao2_sur_est=pao2_sur_est,
-                               pao2_avail_arr=status_cols["pao2_avail"],
-                               pao2_sao2_model_arr=status_cols["pao2_sao2_model"],
-                               pao2_full_model_arr=status_cols["pao2_full_model"],
-                               ratio_arr=ratio_arr, sur_ratio_arr=status_cols["sur_ratio"],
-                               vent_status_arr=vent_status_arr, vent_period_arr=vent_period_arr,
-                               vent_votes_arr=status_cols["vent_votes"], vent_votes_etco2_arr=status_cols["vent_votes_etco2"],
-                               vent_votes_ventgroup_arr=status_cols["vent_votes_ventgroup"],
-                               vent_votes_tv_arr=status_cols["vent_votes_tv"],
-                               vent_votes_airway_arr=status_cols["vent_votes_airway"],
-                               circ_status_arr=circ_status_arr)
-        
+        df_out = assemble_out_df(time_col=time_col, rel_time_col=rel_time_col, pid_col=pid_col,
+                                 event_status_arr=event_status_arr,
+                                 relabel_arr=relabel_arr, fio2_avail_arr=fio2_avail_arr,
+                                 fio2_suppox_arr=fio2_suppox_arr,
+                                 fio2_ambient_arr=fio2_ambient_arr, fio2_est_arr=fio2_est_arr,
+                                 pao2_est_arr=pao2_est_arr, pao2_sur_est=pao2_sur_est,
+                                 pao2_avail_arr=status_cols["pao2_avail"],
+                                 pao2_sao2_model_arr=status_cols["pao2_sao2_model"],
+                                 pao2_full_model_arr=status_cols["pao2_full_model"],
+                                 ratio_arr=ratio_arr, sur_ratio_arr=status_cols["sur_ratio"],
+                                 vent_status_arr=vent_status_arr, vent_period_arr=vent_period_arr,
+                                 vent_votes_arr=status_cols["vent_votes"],
+                                 vent_votes_etco2_arr=status_cols["vent_votes_etco2"],
+                                 vent_votes_ventgroup_arr=status_cols["vent_votes_ventgroup"],
+                                 vent_votes_tv_arr=status_cols["vent_votes_tv"],
+                                 vent_votes_airway_arr=status_cols["vent_votes_airway"],
+                                 circ_status_arr=circ_status_arr)
+
         out_dfs.append(df_out)
 
     all_df = pd.concat(out_dfs, axis=0)

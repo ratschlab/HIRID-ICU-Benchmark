@@ -17,6 +17,31 @@ PHENOTYPING_NAME = 'Phenotyping_APACHEGroup'
 LOS_NAME = 'Remaining_LOS_Reg'
 
 STEPS_PER_HOUR = 12
+
 BINARY_TSH_URINE = 0.5
+LEVEL1_RATIO_RESP = 300
+LEVEL2_RATIO_RESP = 200
+LEVEL3_RATIO_RESP = 100
+FRACTION_TSH_RESP = 2/3
+FRACTION_TSH_CIRC = 2/3
+SPO2_NORMAL_VALUE = 98
+VENT_ETCO2_TSH = 0.5
+NIV_VENT_MODE = 4.0
 
-
+SUPPOX_TO_FIO2 = {
+    0: 21,
+    1: 26,
+    2: 34,
+    3: 39,
+    4: 45,
+    5: 49,
+    6: 54,
+    7: 57,
+    8: 58,
+    9: 63,
+    10: 66,
+    11: 67,
+    12: 69,
+    13: 70,
+    14: 73,
+    15: 75}
