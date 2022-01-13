@@ -5,6 +5,7 @@ import logging
 import os.path
 import random
 import sys
+import ipdb
 
 import gin
 
@@ -37,6 +38,7 @@ if __name__ == "__main__":
     parser.add_argument("--run_mode", default=None, help="Execution mode")
     parser.add_argument("--endpoint", default=None, help="Endpoint to process")
     parser.add_argument("--random_state", default=None, help="Random seed to use for endpoint replicates")
+    parser.add_argument("--load_batch_at_once", default=True, help="Load batch in one file")
 
     parser.add_argument("--gin_config", default="./gin_configs/ep_benchmark.gin", help="GIN config to use")
 
@@ -59,5 +61,4 @@ if __name__ == "__main__":
                 os.path.join(configs["log_dir"], "BENCHMARK_ENDPOINT_GEN_{}_{}.stderr".format(split_key, batch_idx)),
                 'w')
 
-    print("Executing script...")
     execute(configs)
