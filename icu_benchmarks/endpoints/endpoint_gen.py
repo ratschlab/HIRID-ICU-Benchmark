@@ -59,4 +59,5 @@ if __name__ == "__main__":
                 os.path.join(configs["log_dir"], "BENCHMARK_ENDPOINT_GEN_{}_{}.stderr".format(split_key, batch_idx)),
                 'w')
 
+    print("Executing script...")
     execute(configs)
