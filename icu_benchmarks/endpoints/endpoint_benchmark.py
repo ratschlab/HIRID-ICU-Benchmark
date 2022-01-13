@@ -283,6 +283,113 @@ def kernel_smooth_arr(input_arr, bandwidth=None):
     output_arr[np.isfinite(output_arr)] = output_smoothed
     return output_arr
 
+def correct_right_edge_l0(event_status_arr=None, pf_event_est_arr=None):
+    '''Correct right edges of event 0 (correct level to level 0)'''
+    on_right_edge = False
+    in_event = False
+    for idx in range(0, len(event_status_arr) - configs["offset_back_windows"]):
+        cur_state = event_status_arr[idx].decode()
+        if cur_state in ["event_0"] and not in_event:
+            in_event = True
+        elif in_event and cur_state not in ["event_0"]:
+            in_event = False
+            on_right_edge = True
+        if on_right_edge:
+            if pf_event_est_arr[idx] < 300:
+                on_right_edge = False
+            else:
+                event_status_arr[idx] = "event_0"    
+
+    return event_status_arr
+
+def correct_right_edge_l1(event_status_arr=None, pf_event_est_arr=None):
+    '''Correct right edges of event 1 (correct to level 1)'''
+    on_right_edge = False
+    in_event = False
+    for idx in range(0, len(event_status_arr) - configs["offset_back_windows"]):
+        cur_state = event_status_arr[idx].decode()
+        if cur_state in ["event_1"] and not in_event:
+            in_event = True
+        elif in_event and cur_state not in ["event_1"]:
+            in_event = False
+            on_right_edge = True
+        if on_right_edge:
+            if pf_event_est_arr[idx] < 200 or pf_event_est_arr[idx] >= 300:
+                on_right_edge = False
+            else:
+                event_status_arr[idx] = "event_1"
+
+    return event_status_arr
+
+
+def correct_right_edge_l2(event_status_arr=None, pf_event_est_arr=None):
+    '''Correct right edges of event 2 (correct to level 2)'''
+    on_right_edge = False
+    in_event = False
+    for idx in range(0, len(event_status_arr) - configs["offset_back_windows"]):
+        cur_state = event_status_arr[idx].decode()
+        if cur_state in ["event_2"] and not in_event:
+            in_event = True
+        elif in_event and cur_state not in ["event_2"]:
+            in_event = False
+            on_right_edge = True
+        if on_right_edge:
+            if pf_event_est_arr[idx] < 100 or pf_event_est_arr[idx] >= 200:
+                on_right_edge = False
+            else:
+                event_status_arr[idx] = "event_2"
+
+    return event_status_arr
+
+
+def correct_right_edge_l3(event_status_arr=None, pf_event_est_arr=None):
+    # Correct right edges of event 3 (correct to level 3)
+    
+    on_right_edge = False
+    in_event = False
+    for idx in range(0, len(event_status_arr) - configs["offset_back_windows"]):
+        cur_state = event_status_arr[idx].decode()
+        if cur_state in ["event_3"] and not in_event:
+            in_event = True
+        elif in_event and cur_state not in ["event_3"]:
+            in_event = False
+            on_right_edge = True
+        if on_right_edge:
+            if pf_event_est_arr[idx] >= 100:
+                on_right_edge = False
+            else:
+                event_status_arr[idx] = "event_3"
+
+    return event_status_arr
+
+
+def assign_resp_levels(event_status_arr=None, pf_event_est_arr=None, vent_status_arr=None,
+                       peep_status_arr=None, peep_threshold_arr=None, offset_back_windows=None):
+    '''Now label based on the array of estimated Horowitz indices'''
+    for idx in range(0, len(event_status_arr) - offset_back_windows):
+        est_idx = pf_event_est_arr[idx:min(len(ratio_arr), idx + sz_window)]
+        est_vent = vent_status_arr[idx:min(len(ratio_arr), idx + sz_window)]
+        est_peep_dense = peep_status_arr[idx:min(len(ratio_arr), idx + sz_window)]
+        est_peep_threshold = peep_threshold_arr[idx:min(len(ratio_arr), idx + sz_window)]
+
+        if np.sum((est_idx <= 100) & (
+                (est_vent == 0.0) | (est_vent == 1.0) & (est_peep_dense == 0.0) | (est_vent == 1.0) & (
+                est_peep_dense == 1.0) & (est_peep_threshold == 1.0))) >= 2 / 3 * len(est_idx):
+            event_status_arr[idx] = "event_3"
+        elif np.sum((est_idx <= 200) & (
+                (est_vent == 0.0) | (est_vent == 1.0) & (est_peep_dense == 0.0) | (est_vent == 1.0) & (
+                est_peep_dense == 1.0) & (est_peep_threshold == 1.0))) >= 2 / 3 * len(est_idx):
+            event_status_arr[idx] = "event_2"
+        elif np.sum((est_idx <= 300) & (
+                (est_vent == 0.0) | (est_vent == 1.0) & (est_peep_dense == 0.0) | (est_vent == 1.0) & (
+                est_peep_dense == 1.0) & (est_peep_threshold == 1.0))) >= 2 / 3 * len(est_idx):
+            event_status_arr[idx] = "event_1"
+        elif np.sum(np.isnan(est_idx)) < 2 / 3 * len(est_idx):
+            event_status_arr[idx] = "event_0"
+
+
+    return event_status_arr
+
 
 def assemble_out_df(time_col=None, rel_time_col=None, pid_col=None, event_status_arr=None,
                     status_list=None, relabel_arr=None, fio2_avail_arr=None, fio2_suppox_arr=None,
@@ -291,6 +398,7 @@ def assemble_out_df(time_col=None, rel_time_col=None, pid_col=None, event_status
                     ratio_arr=None, sur_ratio_arr=None, vent_status_arr=None, vent_period_arr=None,
                     vent_votes_arr=None, vent_votes_etco2_arr=None, vent_votes_ventgroup_arr=None,
                     vent_votes_tv_arr=None, vent_votes_airway_arr=None, circ_status_arr=None):
+    ''' Assembles the complete data-frame from the constructed endpoint and status arrays'''
     df_out_dict = {}
 
     df_out_dict["datetime"] = time_col
@@ -1018,94 +1126,15 @@ def endpoint_gen_benchmark(configs):
         elif configs["pao2_version"] == "original":
             assert (False)
 
-        # Now label based on the array of estimated Horowitz indices
-        for idx in range(0, len(event_status_arr) - configs["offset_back_windows"]):
-            est_idx = pf_event_est_arr[idx:min(len(ratio_arr), idx + sz_window)]
-            est_vent = vent_status_arr[idx:min(len(ratio_arr), idx + sz_window)]
-            est_peep_dense = peep_status_arr[idx:min(len(ratio_arr), idx + sz_window)]
-            est_peep_threshold = peep_threshold_arr[idx:min(len(ratio_arr), idx + sz_window)]
-
-            if np.sum((est_idx <= 100) & (
-                    (est_vent == 0.0) | (est_vent == 1.0) & (est_peep_dense == 0.0) | (est_vent == 1.0) & (
-                    est_peep_dense == 1.0) & (est_peep_threshold == 1.0))) >= 2 / 3 * len(est_idx):
-                event_status_arr[idx] = "event_3"
-            elif np.sum((est_idx <= 200) & (
-                    (est_vent == 0.0) | (est_vent == 1.0) & (est_peep_dense == 0.0) | (est_vent == 1.0) & (
-                    est_peep_dense == 1.0) & (est_peep_threshold == 1.0))) >= 2 / 3 * len(est_idx):
-                event_status_arr[idx] = "event_2"
-            elif np.sum((est_idx <= 300) & (
-                    (est_vent == 0.0) | (est_vent == 1.0) & (est_peep_dense == 0.0) | (est_vent == 1.0) & (
-                    est_peep_dense == 1.0) & (est_peep_threshold == 1.0))) >= 2 / 3 * len(est_idx):
-                event_status_arr[idx] = "event_1"
-            elif np.sum(np.isnan(est_idx)) < 2 / 3 * len(est_idx):
-                event_status_arr[idx] = "event_0"
+        event_status_arr=assign_resp_levels(event_status_arr=event_status_arr, pf_event_est_arr=pf_event_est_arr,
+                                            vent_status_arr=vent_status_arr, peep_status_arr=peep_status_arr,
+                                            peep_threshold_arr=peep_threshold_arr, offset_back_windows=configs["offset_back_windows"])
 
         # Re-traverse the array and correct the right edges of events
-
-        # Correct right edges of event 0 (correct level to level 0)
-        on_right_edge = False
-        in_event = False
-        for idx in range(0, len(event_status_arr) - configs["offset_back_windows"]):
-            cur_state = event_status_arr[idx].decode()
-            if cur_state in ["event_0"] and not in_event:
-                in_event = True
-            elif in_event and cur_state not in ["event_0"]:
-                in_event = False
-                on_right_edge = True
-            if on_right_edge:
-                if pf_event_est_arr[idx] < 300:
-                    on_right_edge = False
-                else:
-                    event_status_arr[idx] = "event_0"
-
-        # Correct right edges of event 1 (correct to level 1)
-        on_right_edge = False
-        in_event = False
-        for idx in range(0, len(event_status_arr) - configs["offset_back_windows"]):
-            cur_state = event_status_arr[idx].decode()
-            if cur_state in ["event_1"] and not in_event:
-                in_event = True
-            elif in_event and cur_state not in ["event_1"]:
-                in_event = False
-                on_right_edge = True
-            if on_right_edge:
-                if pf_event_est_arr[idx] < 200 or pf_event_est_arr[idx] >= 300:
-                    on_right_edge = False
-                else:
-                    event_status_arr[idx] = "event_1"
-
-        # Correct right edges of event 2 (correct to level 2)
-        on_right_edge = False
-        in_event = False
-        for idx in range(0, len(event_status_arr) - configs["offset_back_windows"]):
-            cur_state = event_status_arr[idx].decode()
-            if cur_state in ["event_2"] and not in_event:
-                in_event = True
-            elif in_event and cur_state not in ["event_2"]:
-                in_event = False
-                on_right_edge = True
-            if on_right_edge:
-                if pf_event_est_arr[idx] < 100 or pf_event_est_arr[idx] >= 200:
-                    on_right_edge = False
-                else:
-                    event_status_arr[idx] = "event_2"
-
-        # Correct right edges of event 3 (correct to level 3)
-        on_right_edge = False
-        in_event = False
-        for idx in range(0, len(event_status_arr) - configs["offset_back_windows"]):
-            cur_state = event_status_arr[idx].decode()
-            if cur_state in ["event_3"] and not in_event:
-                in_event = True
-            elif in_event and cur_state not in ["event_3"]:
-                in_event = False
-                on_right_edge = True
-            if on_right_edge:
-                if pf_event_est_arr[idx] >= 100:
-                    on_right_edge = False
-                else:
-                    event_status_arr[idx] = "event_3"
-
+        event_status_arr=correct_right_edge_l0(event_status_arr=event_status_arr, pf_event_est_arr=pf_event_est_arr)
+        event_status_arr=correct_right_edge_l1(event_status_arr=event_status_arr, pf_event_est_arr=pf_event_est_arr)
+        event_status_arr=correct_right_edge_l2(event_status_arr=event_status_arr, pf_event_est_arr=pf_event_est_arr)
+        event_status_arr=correct_right_edge_l3(event_status_arr=event_status_arr, pf_event_est_arr=pf_event_est_arr)
 
         circ_status_arr=gen_circ_failure_ep(event_status_arr=event_status_arr,
                                             map_col=map_col, lactate_col=lactate_col,
