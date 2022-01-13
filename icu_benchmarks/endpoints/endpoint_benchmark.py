@@ -284,6 +284,53 @@ def kernel_smooth_arr(input_arr, bandwidth=None):
     return output_arr
 
 
+def assemble_out_df(time_col=None, rel_time_col=None, pid_col=None, event_status_arr=None,
+                    status_list=None, relabel_arr=None, fio2_avail_arr=None, fio2_suppox_arr=None,
+                    fio2_ambient_arr=None, fio2_est_arr=None, pao2_est_arr=None, pao2_sur_est=None,
+                    pao2_avail_arr=None, pao2_sao2_model_arr=None, pao2_full_model_arr=None,
+                    ratio_arr=None, sur_ratio_arr=None, vent_status_arr=None, vent_period_arr=None,
+                    vent_votes_arr=None, vent_votes_etco2_arr=None, vent_votes_ventgroup_arr=None,
+                    vent_votes_tv_arr=None, vent_votes_airway_arr=None, circ_status_arr=None):
+    df_out_dict = {}
+
+    df_out_dict["datetime"] = time_col
+    df_out_dict["rel_datetime"] = rel_time_col
+    df_out_dict["patientid"] = pid_col
+    status_list = list(map(lambda raw_str: raw_str.decode("unicode_escape"), event_status_arr.tolist()))
+    df_out_dict["resp_failure_status"] = status_list
+    df_out_dict["resp_failure_status_relabel"] = relabel_arr
+
+    # Status columns
+    df_out_dict["fio2_available"] = fio2_avail_arr
+    df_out_dict["fio2_suppox"] = fio2_suppox_arr
+    df_out_dict["fio2_ambient"] = fio2_ambient_arr
+    df_out_dict["fio2_estimated"] = fio2_est_arr
+    df_out_dict["pao2_estimated"] = pao2_est_arr
+
+    df_out_dict["pao2_estimated_sur"] = pao2_sur_est
+    df_out_dict["pao2_available"] = pao2_avail_arr
+    df_out_dict["pao2_sao2_model"] = pao2_sao2_model_arr
+    df_out_dict["pao2_full_model"] = pao2_full_model_arr
+    df_out_dict["estimated_ratio"] = ratio_arr
+    df_out_dict["estimated_ratio_sur"] = sur_ratio_arr
+    df_out_dict["vent_state"] = vent_status_arr
+    df_out_dict["vent_period"] = vent_period_arr
+
+    # Ventilation voting base columns
+    df_out_dict["vent_votes"] = vent_votes_arr
+    df_out_dict["vent_votes_etco2"] = vent_votes_etco2_arr
+    df_out_dict["vent_votes_ventgroup"] = vent_votes_ventgroup_arr
+    df_out_dict["vent_votes_tv"] = vent_votes_tv_arr
+    df_out_dict["vent_votes_airway"] = vent_votes_airway_arr
+
+    # Circulatory failure related
+    df_out_dict["circ_failure_status"] = circ_status_arr
+
+    df_out = pd.DataFrame(df_out_dict)
+    return df_out
+
+
+
 def delete_short_vent_events(vent_status_arr, short_event_hours):
     """ Delete short events in the ventilation status array"""
     in_event = False
@@ -1069,49 +1116,21 @@ def endpoint_gen_benchmark(configs):
 
         # Traverse the array and delete short gap
         event_status_arr, relabel_arr = delete_small_continuous_blocks(event_status_arr,
-                                                                       block_threshold=configs[
-                                                                           "pf_event_merge_threshold"])
+                                                                       block_threshold=configs["pf_event_merge_threshold"])
 
         time_col = np.array(df_pid["datetime"])
         rel_time_col = np.array(df_pid["rel_datetime"])
         pid_col = np.array(df_pid["patientid"])
 
-        df_out_dict = {}
-
-        df_out_dict["datetime"] = time_col
-        df_out_dict["rel_datetime"] = rel_time_col
-        df_out_dict["patientid"] = pid_col
-        status_list = list(map(lambda raw_str: raw_str.decode("unicode_escape"), event_status_arr.tolist()))
-        df_out_dict["resp_failure_status"] = status_list
-        df_out_dict["resp_failure_status_relabel"] = relabel_arr
-
-        # Status columns
-        df_out_dict["fio2_available"] = fio2_avail_arr
-        df_out_dict["fio2_suppox"] = fio2_suppox_arr
-        df_out_dict["fio2_ambient"] = fio2_ambient_arr
-        df_out_dict["fio2_estimated"] = fio2_est_arr
-        df_out_dict["pao2_estimated"] = pao2_est_arr
-
-        df_out_dict["pao2_estimated_sur"] = pao2_sur_est
-        df_out_dict["pao2_available"] = pao2_avail_arr
-        df_out_dict["pao2_sao2_model"] = pao2_sao2_model_arr
-        df_out_dict["pao2_full_model"] = pao2_full_model_arr
-        df_out_dict["estimated_ratio"] = ratio_arr
-        df_out_dict["estimated_ratio_sur"] = sur_ratio_arr
-        df_out_dict["vent_state"] = vent_status_arr
-        df_out_dict["vent_period"] = vent_period_arr
-
-        # Ventilation voting base columns
-        df_out_dict["vent_votes"] = vent_votes_arr
-        df_out_dict["vent_votes_etco2"] = vent_votes_etco2_arr
-        df_out_dict["vent_votes_ventgroup"] = vent_votes_ventgroup_arr
-        df_out_dict["vent_votes_tv"] = vent_votes_tv_arr
-        df_out_dict["vent_votes_airway"] = vent_votes_airway_arr
-
-        # Circulatory failure related
-        df_out_dict["circ_failure_status"] = circ_status_arr
-
-        df_out = pd.DataFrame(df_out_dict)
+        df_out=assemble_out_df(time_col=time_col, rel_time_col=rel_time_col, pid_col=pid_col, event_status_arr=event_status_arr,
+                               status_list=status_list, relabel_arr=relabel_arr, fio2_avail_arr=fio2_avail_arr, fio2_suppox_arr=fio2_suppox_arr,
+                               fio2_ambient_arr=fio2_ambient_arr, fio2_est_arr=fio2_est_arr, pao2_est_arr=pao2_est_arr, pao2_sur_est=pao2_sur_est,
+                               pao2_avail_arr=pao2_avail_arr, pao2_sao2_model_arr=pao2_sao2_model_arr, pao2_full_model_arr=pao2_full_model_arr,
+                               ratio_arr=ratio_arr, sur_ratio_arr=sur_ratio_arr, vent_status_arr=vent_status_arr, vent_period_arr=vent_period_arr,
+                               vent_votes_arr=vent_votes_arr, vent_votes_etco2_arr=vent_votes_etco2_arr,
+                               vent_votes_ventgroup_arr=vent_votes_ventgroup_arr, vent_votes_tv_arr=vent_votes_tv_arr,
+                               vent_votes_airway_arr=vent_votes_airway_arr, circ_status_arr=circ_status_arr)
+        
         out_dfs.append(df_out)
 
     all_df = pd.concat(out_dfs, axis=0)
