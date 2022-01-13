@@ -682,7 +682,104 @@ def gen_circ_failure_ep(event_status_arr=None, map_col=None, lactate_col=None, m
 
     return circ_status_arr
     
+
+def compute_pao2_fio2_estimates(ratio_arr=None, abs_dtime_arr=None, suppox_async_red_ts=None,
+                                fio2_col=None, fio2_meas_cnt=None, etco2_meas_cnt=None,
+                                vent_mode_col=None, vent_status_arr=None, event_count=None,
+                                fio2_avail_arr=None, suppox_max_ffill=None, ambient_fio2=None,
+                                fio2_ambient_arr=None, suppox_val=None, fio2_suppox_arr=None):
+
+    print("Compute PaO2/Fio2 estimates")
     
+    # Array pointers tracking the current active value of each type
+    suppox_async_red_ptr = -1    
+                                
+    # Label each point in the 30 minute window (except ventilation)
+    for jdx in range(0, len(ratio_arr)):
+
+        # Advance to the last SuppOx infos before grid point
+        cur_time = abs_dtime_arr[jdx]
+        while True:
+            suppox_async_red_ptr = suppox_async_red_ptr + 1
+            if suppox_async_red_ptr >= len(suppox_async_red_ts) or suppox_async_red_ts[
+                suppox_async_red_ptr] > cur_time:
+                suppox_async_red_ptr = suppox_async_red_ptr - 1
+                break
+
+        # Estimate the current FiO2 value
+        bw_fio2 = fio2_col[max(0, jdx - configs["sz_fio2_window"]):jdx + 1]
+        bw_fio2_meas = fio2_meas_cnt[max(0, jdx - configs["sz_fio2_window"]):jdx + 1]
+        bw_etco2_meas = etco2_meas_cnt[max(0, jdx - configs["sz_etco2_window"]):jdx + 1]
+        fio2_meas = bw_fio2_meas[-1] - bw_fio2_meas[0] > 0
+
+        mode_group_est = vent_mode_col[jdx]
+
+        # FiO2 is measured since beginning of stay and EtCO2 was measured, we use FiO2 (indefinite forward filling)
+        # if ventilation is active or the current estimate of ventilation mode group is NIV.
+        if fio2_meas and (vent_status_arr[jdx] == 1.0 or mode_group_est == 4.0):
+            event_count["FIO2_AVAILABLE"] += 1
+            fio2_val = bw_fio2[-1] / 100
+            fio2_avail_arr[jdx] = 1
+
+        # Use supplemental oxygen or ambient air oxygen
+        else:
+
+            # No real measurements up to now, or the last real measurement
+            # was more than 8 hours away.
+            if suppox_async_red_ptr == -1 or (
+                    cur_time - suppox_async_red_ts[suppox_async_red_ptr]) > np.timedelta64(
+                configs["suppox_max_ffill"], 'h'):
+                event_count["SUPPOX_NO_MEAS_12_HOURS_LIMIT"] += 1
+                fio2_val = configs["ambient_fio2"]
+                fio2_ambient_arr[jdx] = 1
+
+            # Find the most recent source variable of SuppOx
+            else:
+                suppox = suppox_val["SUPPOX"][suppox_async_red_ptr]
+
+                # SuppOx information from main source
+                if np.isfinite(suppox):
+                    event_count["SUPPOX_MAIN_VAR"] += 1
+                    fio2_val = suppox_to_fio2(int(suppox)) / 100
+                    fio2_suppox_arr[jdx] = 1
+                else:
+                    assert (False, "Impossible condition")
+
+        bw_pao2_meas = pao2_meas_cnt[max(0, jdx - configs["sz_pao2_window"]):jdx + 1]
+        bw_pao2 = pao2_col[max(0, jdx - configs["sz_pao2_window"]):jdx + 1]
+        pao2_meas = bw_pao2_meas[-1] - bw_pao2_meas[0] >= 1
+
+        # PaO2 was just measured, just use the value
+        if pao2_meas:
+            pao2_estimate = bw_pao2[-1]
+            pao2_avail_arr[jdx] = 1
+
+        # Have to forecast PaO2 from a previous SpO2
+        else:
+            bw_spo2 = spo2_col[max(0, jdx - abga_window):jdx + 1]
+            bw_spo2_meas = spo2_meas_cnt[max(0, jdx - abga_window):jdx + 1]
+            spo2_meas = bw_spo2_meas[-1] - bw_spo2_meas[0] >= 1
+
+            # Standard case, take the last SpO2 measurement
+            if spo2_meas:
+                spo2_val = bw_spo2[-1]
+                pao2_estimate = ellis(np.array([spo2_val]))[0]
+
+            # Extreme edge case, there was SpO2 measurement in the last 24 hours
+            else:
+                spo2_val = 98
+                pao2_estimate = ellis(np.array([spo2_val]))[0]
+
+        # Compute the individual components of the Horowitz index
+        pao2_est_arr[jdx] = pao2_estimate
+        fio2_est_arr[jdx] = fio2_val
+
+        out_dict={}
+        out_dict["pao2_est_arr"]=pao2_est_arr
+        out_dict["fio2_est_arr"]=fio2_est_arr
+
+        return out_dict
+
 
 def delete_low_density_hr_gap(vent_status_arr, hr_status_arr, configs=None):
     """ Deletes gaps in ventilation which are caused by likely sensor dis-connections"""
@@ -855,6 +952,8 @@ def endpoint_gen_benchmark(configs):
 
     out_dfs = []
 
+    print("Number of patients: {}".format(len(pids)))
+
     for pidx, pid in enumerate(pids):
         df_pid = df_batch[df_batch["patientid"] == pid]
 
@@ -888,9 +987,6 @@ def endpoint_gen_benchmark(configs):
         # Initialize status columns for this patient
         status_cols= initialize_status_cols()
         locals().update(status_cols)
-
-        # Array pointers tracking the current active value of each type
-        suppox_async_red_ptr = -1
 
         # ======================== VENTILATION ================================================================================================
 
@@ -1015,88 +1111,15 @@ def endpoint_gen_benchmark(configs):
                     if event_length / 60. <= configs["short_event_hours_vent_period"]:
                         vent_period_arr[event_start_idx:idx] = 0.0
 
-        # ============================== OXYGENATION ENDPOINTS ==================================================================
-
-        # Label each point in the 30 minute window (except ventilation)
-        for jdx in range(0, len(ratio_arr)):
-
-            # Advance to the last SuppOx infos before grid point
-            cur_time = abs_dtime_arr[jdx]
-            while True:
-                suppox_async_red_ptr = suppox_async_red_ptr + 1
-                if suppox_async_red_ptr >= len(suppox_async_red_ts) or suppox_async_red_ts[
-                    suppox_async_red_ptr] > cur_time:
-                    suppox_async_red_ptr = suppox_async_red_ptr - 1
-                    break
-
-            # Estimate the current FiO2 value
-            bw_fio2 = fio2_col[max(0, jdx - configs["sz_fio2_window"]):jdx + 1]
-            bw_fio2_meas = fio2_meas_cnt[max(0, jdx - configs["sz_fio2_window"]):jdx + 1]
-            bw_etco2_meas = etco2_meas_cnt[max(0, jdx - configs["sz_etco2_window"]):jdx + 1]
-            fio2_meas = bw_fio2_meas[-1] - bw_fio2_meas[0] > 0
-
-            mode_group_est = vent_mode_col[jdx]
-
-            # FiO2 is measured since beginning of stay and EtCO2 was measured, we use FiO2 (indefinite forward filling)
-            # if ventilation is active or the current estimate of ventilation mode group is NIV.
-            if fio2_meas and (vent_status_arr[jdx] == 1.0 or mode_group_est == 4.0):
-                event_count["FIO2_AVAILABLE"] += 1
-                fio2_val = bw_fio2[-1] / 100
-                fio2_avail_arr[jdx] = 1
-
-            # Use supplemental oxygen or ambient air oxygen
-            else:
-
-                # No real measurements up to now, or the last real measurement
-                # was more than 8 hours away.
-                if suppox_async_red_ptr == -1 or (
-                        cur_time - suppox_async_red_ts[suppox_async_red_ptr]) > np.timedelta64(
-                    configs["suppox_max_ffill"], 'h'):
-                    event_count["SUPPOX_NO_MEAS_12_HOURS_LIMIT"] += 1
-                    fio2_val = configs["ambient_fio2"]
-                    fio2_ambient_arr[jdx] = 1
-
-                # Find the most recent source variable of SuppOx
-                else:
-                    suppox = suppox_val["SUPPOX"][suppox_async_red_ptr]
-
-                    # SuppOx information from main source
-                    if np.isfinite(suppox):
-                        event_count["SUPPOX_MAIN_VAR"] += 1
-                        fio2_val = suppox_to_fio2(int(suppox)) / 100
-                        fio2_suppox_arr[jdx] = 1
-                    else:
-                        assert (False, "Impossible condition")
-
-            bw_pao2_meas = pao2_meas_cnt[max(0, jdx - configs["sz_pao2_window"]):jdx + 1]
-            bw_pao2 = pao2_col[max(0, jdx - configs["sz_pao2_window"]):jdx + 1]
-            pao2_meas = bw_pao2_meas[-1] - bw_pao2_meas[0] >= 1
-
-            # PaO2 was just measured, just use the value
-            if pao2_meas:
-                pao2_estimate = bw_pao2[-1]
-                pao2_avail_arr[jdx] = 1
-
-            # Have to forecast PaO2 from a previous SpO2
-            else:
-                bw_spo2 = spo2_col[max(0, jdx - abga_window):jdx + 1]
-                bw_spo2_meas = spo2_meas_cnt[max(0, jdx - abga_window):jdx + 1]
-                spo2_meas = bw_spo2_meas[-1] - bw_spo2_meas[0] >= 1
-
-                # Standard case, take the last SpO2 measurement
-                if spo2_meas:
-                    spo2_val = bw_spo2[-1]
-                    pao2_estimate = ellis(np.array([spo2_val]))[0]
-
-                # Extreme edge case, there was SpO2 measurement in the last 24 hours
-                else:
-                    spo2_val = 98
-                    pao2_estimate = ellis(np.array([spo2_val]))[0]
-
-            # Compute the individual components of the Horowitz index
-            pao2_est_arr[jdx] = pao2_estimate
-            fio2_est_arr[jdx] = fio2_val
-
+        # Estimate the FiO2/PaO2 values at indiviual time points
+        est_out_dict=compute_pao2_fio2_estimates(ratio_arr=ratio_arr, abs_dtime_arr=abs_dtime_arr, suppox_async_red_ts=suppox_async_red_ts,
+                                                 fio2_col=fio2_col, fio2_meas_cnt=fio2_meas_cnt, etco2_meas_cnt=etco2_meas_cnt,
+                                                 vent_mode_col=vent_mode_col, vent_status_arr=vent_status_arr,
+                                                 event_count=event_count, fio2_avail_arr=fio2_avail_arr, suppox_max_ffill=configs["suppox_max_ffill"],
+                                                 ambient_fio2=configs["ambient_fio2"], fio2_ambient_arr=fio2_ambient_arr,
+                                                 suppox_val=suppox_val, fio2_suppox_arr)
+        locals().update(est_out_dict)
+        
         # Smooth individual components of the P/F ratio estimate
         if configs["kernel_smooth_estimate_pao2"]:
             pao2_est_arr = kernel_smooth_arr(pao2_est_arr, bandwidth=configs["smoothing_bandwidth"])
@@ -1113,9 +1136,7 @@ def endpoint_gen_benchmark(configs):
             pao2_est_arr = mix_real_est_pao2(pao2_col, pao2_meas_cnt, pao2_est_arr,
                                              bandwidth=configs["smoothing_bandwidth"])
 
-        # Compute Horowitz indices (Kernel pipeline / Surrogate model pipeline)
-        for jdx in range(len(ratio_arr)):
-            ratio_arr[jdx] = pao2_est_arr[jdx] / fio2_est_arr[jdx]
+        ratio_arr=np.divide(pao2_est_arr,fio2_est_arr)
 
         # Post-smooth Horowitz index
         if configs["post_smooth_pf_ratio"]:
