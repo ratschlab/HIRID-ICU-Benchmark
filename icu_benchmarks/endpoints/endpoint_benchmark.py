@@ -24,7 +24,13 @@ MAX_SUPPOX_KEY = np.array(list(SUPPOX_TO_FIO2.keys())).max()
 MAX_SUPPOX_TO_FIO2_VAL = SUPPOX_TO_FIO2[MAX_SUPPOX_KEY]
 
 def load_pickle(fpath):
-    """ Given a file path pointing to a pickle file, yields the object pickled in this file"""
+    """ Given a file path pointing to a pickle file, yields the object pickled in this file
+
+    INPUTS:
+    fpath: Pickle file to be loaded
+
+    RETURNS: Content of pickle file
+    """
     with open(fpath, 'rb') as fp:
         return pickle.load(fp)
 
@@ -563,7 +569,24 @@ def delete_small_continuous_blocks(event_arr, block_threshold=None):
 def gen_circ_failure_ep(event_status_arr=None, map_col=None, lactate_col=None, milri_col=None, dobut_col=None,
                         levosi_col=None, theo_col=None,
                         noreph_col=None, epineph_col=None, vaso_col=None):
-    """ Circulatory failure endpoint definition"""
+    """ Circulatory failure endpoint definition
+    
+    INPUTS:
+    event_status_arr: Event status array to be filled with circ. failure level
+    map_col: Mean arterial pressure imputed values at each time-point
+    lactate_col: Lactate imputed values at each time-point
+    milri_col: Milrinone drug imputed values at each time-point
+    dobut_col: Dobutamine drug imputed values at each time-point
+    levosi_col: Levosimendan drug imputed values at each time-point
+    theo_col: Theophyllin drug imputed values at each time-point
+    noreph_col: Norepinephrine drug imputed values at each time-point
+    epineph_col: Epinephrine drug imputed values at each time-point
+    vaso_col: Vasopressin drug imputed values at each time-point
+
+    RETURNS: Binary indicator array if the patient was in circulatory failure (=1) or not (=0)
+
+    """
+
     circ_status_arr = np.zeros_like(map_col)
 
     # Computation of the circulatory failure toy version of the endpoint
@@ -596,6 +619,39 @@ def compute_pao2_fio2_estimates(ratio_arr=None, abs_dtime_arr=None, suppox_async
                                 fio2_avail_arr=None, suppox_max_ffill=None, ambient_fio2=None,
                                 fio2_ambient_arr=None, suppox_val=None, fio2_suppox_arr=None,
                                 sz_fio2_window=None, sz_pao2_window=None, pao2_avail_col=None):
+
+    """ Compute the PaO2 and FiO2 estimates at a particular time-point in the stay
+
+    INPUTS: 
+    ratio_arr: For length computation
+    abs_dtime_arr: Absolute date time in stay
+    suppox_async_red_ts: Time stamps of where asynchronuous supplementary oxygen measurements become available
+    fio2_col: FiO2 imputed values
+    fio2_meas_cnt: Cumulative number of real FiO2 measurements since beginning of the stay
+    pao2_meas_cnt: Cumulative number of real PaO2 measurements since beginning ot the stay
+    pao2_col: PaO2 imputed values
+    spo2_col: SpO2 imputed values
+    abga_window: Length of window in which to detect Arterial blood gas analyses
+    spo2_meas_cnt: Cumulative number of real SpO2 measurements since beginning of the stay
+    pao2_est_arr: Array to be filled with PaO2 estimates (OUTPUT)
+    fio2_est_arr: Array to be filled with FiO2 estimates (OUTPU)
+    vent_mode_col: Ventilation mode codes at each timepoint
+    vent_status_arr: Ventilation status at each time-point
+    event_count: Event count dictionary for debugging purposes
+    fio2_avail_arr: Binary indicator of whether available FiO2 was used for estimation (OUTPUT)
+    suppox_max_ffill: Maximum forward filling time of Supplementary Oxygen measurement 
+    ambient_fio2: FiO2 value to default to in an ambient air assumption
+    fio2_ambient_arr: Binary indicator of whether ambient air FiO2 was used for estimation (OUTPUT)
+    suppox_val: Supplementary oxygen raw values 
+    fio2_suppox_arr: Binary indicator of whether Suppox was used for FiO2 estimation (OUTPUT)
+    sz_fio2_window: Size of the FiO2 window to use for searching measurements
+    sz_pao2_window: Size of the PaO2 window to use for searching measurements
+    pao2_avail_col: Availability of a close PaO2 measurement at a time-point
+
+    RETURNS: Estimated PaO2 / FiO2 values at a time-point, and the 3 status arrays of the way FiO2 
+             was estimated at a particular time-point.
+
+    """
 
     # Array pointers tracking the current active value of each type
     suppox_async_red_ptr = -1
@@ -689,7 +745,15 @@ def compute_pao2_fio2_estimates(ratio_arr=None, abs_dtime_arr=None, suppox_async
 
 # UT : Mid
 def delete_low_density_hr_gap(vent_status_arr, hr_status_arr, configs=None):
-    """ Deletes gaps in ventilation which are caused by likely sensor dis-connections"""
+    """ Deletes gaps in ventilation which are caused by likely sensor dis-connections
+    
+    INPUTS: 
+    vent_status_arr: Pre-estimated ventilation status at a time-point
+    hr_status_arr: Binary indicator of whether HR sensor was connected at a time-point
+
+    RETURNS: Corrected ventilation status array
+
+    """
     in_event = False
     in_gap = False
     gap_idx = -1
