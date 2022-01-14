@@ -30,7 +30,15 @@ def load_pickle(fpath):
 
 # UT : Mid
 def mix_real_est_pao2(pao2_col, pao2_meas_cnt, pao2_est_arr):
-    """ Mix real PaO2 measurement and PaO2 estimates using a Gaussian kernel"""
+    """ Mix real PaO2 measurement and PaO2 estimates using a Gaussian kernel
+     
+    INPUTS:
+    pao2_col: Imputed PaO2 time series
+    pao2_meas_cnt: Cumulative real measurement counts of PaO2
+    pao2_est_arr: PaO2 estimates at each point computed by another function
+
+    RETURNS: A 1D time series of the final mixed PaO2 estimate
+    """
     final_pao2_arr = np.copy(pao2_est_arr)
     sq_scale = PAO2_MIX_SCALE  # 1 hour has mass 1/3 approximately
 
@@ -59,7 +67,14 @@ def mix_real_est_pao2(pao2_col, pao2_meas_cnt, pao2_est_arr):
 
 # UT : Mid
 def kernel_smooth_arr(input_arr, bandwidth=None):
-    """ Kernel smooth an input array with a Nadaraya-Watson kernel smoother"""
+    """ Kernel smooth an input array with a Nadaraya-Watson kernel smoother
+    
+    INPUTS:
+    input_arr: Input array to be smoothed
+
+    RETURNS: Input array smoothed with kernel
+
+    """
     output_arr = np.copy(input_arr)
     fin_arr = output_arr[np.isfinite(output_arr)]
     time_axis = MINS_PER_STEP * np.arange(len(output_arr))
@@ -78,7 +93,15 @@ def kernel_smooth_arr(input_arr, bandwidth=None):
 
 # UT : Mid
 def percentile_smooth(signal_col, percentile, win_scope_mins):
-    """ Window percentile smoother, where percentile is in the interval [0,100]"""
+    """ Window percentile smoother, where percentile is in the interval [0,100]
+    
+    INPUTS:
+    signal_col: Input time series to be smoothed
+    percentile: Which percentile should be used to take from the centralized window?
+    win_scope_mins: Length of smoothing windows in minutes
+
+    RETURNS: Smoothed input array
+    """
     out_arr = np.zeros_like(signal_col)
     mins_per_window = MINS_PER_STEP
     search_range = int(win_scope_mins / mins_per_window / 2)
@@ -90,7 +113,15 @@ def percentile_smooth(signal_col, percentile, win_scope_mins):
 # UT : HIGH
 # TODO: Refactor
 def merge_short_vent_gaps(vent_status_arr, short_gap_hours):
-    """ Merge short gaps in the ventilation status array"""
+    """ Merge short gaps in the ventilation status array
+    
+    INPUTS: 
+    vent_status_arr: Binary ventilation status estmate at each time-step
+    short_gap_hours: All gaps which are less than or equal to this threshold will be merged
+
+    RETURNS: Ventilator status array with gaps removed
+
+    """
     in_gap = False
     gap_length = 0
 
@@ -113,7 +144,20 @@ def merge_short_vent_gaps(vent_status_arr, short_gap_hours):
 def assign_resp_levels(event_status_arr=None, pf_event_est_arr=None, vent_status_arr=None,
                        ratio_arr=None, sz_window=None, peep_status_arr=None, peep_threshold_arr=None,
                        offset_back_windows=None):
-    """Now label based on the array of estimated Horowitz indices"""
+    """Now label based on the array of estimated Horowitz indices
+
+    INPUTS: 
+    event_status_arr: The array to be filled with the ventilation status (OUTPUT)
+    pf_event_est_arr: Array of estimated P/F ratios at each time step
+    vent_status_arr: Array of estimated ventilation status at each time-step
+    ratio_arr: Passed for length compute
+    sz_window: Size of forward windows specified as multiple of time series gridding size
+    peep_status_arr: Status array of available PEEP measurement at a time-point
+    peep_threshold_arr: Binary array indicating if PEEP threshold was reached at a time-point
+    offset_back_windows: Do not compute respiratory level for incomplete windows at the end of stay
+
+    RETURNS: Filled event status array
+    """
     for idx in range(0, len(event_status_arr) - offset_back_windows):
         est_idx = pf_event_est_arr[idx:min(len(ratio_arr), idx + sz_window)]
         est_vent = vent_status_arr[idx:min(len(ratio_arr), idx + sz_window)]
@@ -140,7 +184,15 @@ def assign_resp_levels(event_status_arr=None, pf_event_est_arr=None, vent_status
 # UT : HIGH
 def correct_right_edge_l0(event_status_arr=None, pf_event_est_arr=None,
                           offset_back_windows=None):
-    """Correct right edges of event 0 (correct level to level 0)"""
+    """Correct right edges of event 0 (correct level to level 0)
+
+    INPUTS:
+    event_status_arr: Estimate resp event level at each time-point
+    pf_event_est_arr: 1D time series of estimated P/F ratio at each time-step
+    offset_back_windows: Do not process edge windows at the end of the stay
+
+    RETURNS: Event status array with right edge of L0 zones corrected
+    """
     on_right_edge = False
     in_event = False
     for idx in range(0, len(event_status_arr) - offset_back_windows):
@@ -161,7 +213,14 @@ def correct_right_edge_l0(event_status_arr=None, pf_event_est_arr=None,
 # UT : HIGH
 def correct_right_edge_l1(event_status_arr=None, pf_event_est_arr=None,
                           offset_back_windows=None):
-    """Correct right edges of event 1 (correct to level 1)"""
+    """Correct right edges of event 1 (correct to level 1)
+    INPUTS:
+    event_status_arr: Estimate resp event level at each time-point
+    pf_event_est_arr: 1D time series of estimated P/F ratio at each time-step
+    offset_back_windows: Do not process edge windows at the end of the stay
+
+    RETURNS: Event status array with right edge of L1 zones corrected
+    """
     on_right_edge = False
     in_event = False
     for idx in range(0, len(event_status_arr) - offset_back_windows):
@@ -182,7 +241,14 @@ def correct_right_edge_l1(event_status_arr=None, pf_event_est_arr=None,
 # UT : HIGH
 def correct_right_edge_l2(event_status_arr=None, pf_event_est_arr=None,
                           offset_back_windows=None):
-    """Correct right edges of event 2 (correct to level 2)"""
+    """Correct right edges of event 2 (correct to level 2)
+    INPUTS:
+    event_status_arr: Estimate resp event level at each time-point
+    pf_event_est_arr: 1D time series of estimated P/F ratio at each time-step
+    offset_back_windows: Do not process edge windows at the end of the stay
+
+    RETURNS: Event status array with right edge of L2 zones corrected
+    """
     on_right_edge = False
     in_event = False
     for idx in range(0, len(event_status_arr) - offset_back_windows):
@@ -203,7 +269,15 @@ def correct_right_edge_l2(event_status_arr=None, pf_event_est_arr=None,
 # UT : HIGH
 def correct_right_edge_l3(event_status_arr=None, pf_event_est_arr=None,
                           offset_back_windows=None):
-    # Correct right edges of event 3 (correct to level 3)
+    """ Correct right edges of event 3 (correct to level 3)
+
+    INPUTS:
+    event_status_arr: Estimate resp event level at each time-point
+    pf_event_est_arr: 1D time series of estimated P/F ratio at each time-step
+    offset_back_windows: Do not process edge windows at the end of the stay
+
+    RETURNS: Event status array with right edge of L3 zones corrected
+    """
 
     on_right_edge = False
     in_event = False
@@ -230,7 +304,39 @@ def assemble_out_df(time_col=None, rel_time_col=None, pid_col=None, event_status
                     ratio_arr=None, sur_ratio_arr=None, vent_status_arr=None, vent_period_arr=None,
                     vent_votes_arr=None, vent_votes_etco2_arr=None, vent_votes_ventgroup_arr=None,
                     vent_votes_tv_arr=None, vent_votes_airway_arr=None, circ_status_arr=None):
-    """ Assembles the complete data-frame from the constructed endpoint and status arrays"""
+    """ Assembles the complete data-frame from the constructed endpoint and status arrays
+
+    INPUTS:
+    time_col: Absolute time column
+    rel_time_col: Relative time column
+    pid_col: Column with patient ID
+    event_status_arr: Respiratory event levels estimated at each time-point
+    relabel_arr: Binary indicator if a position was relabeled with a post-processing step, for the resp
+                 status estimation.
+    fio2_avail_arr: Indicator whether FiO2 measurement was available at a time-point
+    fio2_suppox_arr: Indicator whether FiO2 was estimated from supplementary oxygen at a time-point
+    fio2_ambient_arr: Indicator whether ambient air assumption was used at a time-point
+    fio2_est_arr: FiO2 value estimated at each time-point
+    pao2_est_arr: PaO2 value estimated at each time-point
+    pao2_sur_est: TBD
+    pao2_avail_arr: Binary indicator whether a real PaO2 measurement was available close to time-point
+    pao2_sao2_model_arr: Binary indicator whether SaO2 model was used to estimate PaO2 at a time-point
+    pao2_full_model_arr: Binary indicator whether full model was used to estimate PaO2 at a time-point
+    ratio_arr: P/F ratios estimated at each time-point
+    sur_ratio_arr: TBD
+    vent_status_arr: Presence of ventilation at each time-point
+    vent_period_arr: More precise post-processed version of ventilation annotation
+    vent_votes_arr: Ventilation detection is based on a voting algorithm based on several factors, number
+                    of points associated with each time-point
+    vent_votes_etco2_arr: Ventilation votes for the ETCO2 condition
+    vent_votes_ventgroup_arr: Ventilation votes for the ventilation code group condition
+    vent_votes_tv_arr: Ventilation votes for the TV condition
+    vent_votes_airway_arr: Ventilation votes for the airway condition
+    circ_status_arr: Circulatory failure level annotated at each time-point
+
+    RETURNS: Complete endpoint data-frame for a patient
+
+    """
     df_out_dict = {}
 
     df_out_dict[DATETIME] = time_col
@@ -272,7 +378,14 @@ def assemble_out_df(time_col=None, rel_time_col=None, pid_col=None, event_status
 # UT : Mid
 # TODO : Refactor
 def delete_short_vent_events(vent_status_arr, short_event_hours):
-    """ Delete short events in the ventilation status array"""
+    """ Delete short events in the ventilation status array
+    
+    INPUTS:
+    vent_status_arr: Original ventilation annotation with small events not yet removed
+    short_event_hours: Threshold in hours when an event is considered "small"
+
+    RETURNS: Ventilation status array with small events removed
+    """
     in_event = False
     event_length = 0
     for idx in range(len(vent_status_arr)):
@@ -293,7 +406,13 @@ def delete_short_vent_events(vent_status_arr, short_event_hours):
 # TODO Check there is no hardcoding here
 def ellis(x_orig):
     """ ELLIS model converting SpO2 in 100 % units into a PaO2 ABGA
-        estimate"""
+        estimate
+    
+    INPUTS: 
+    x_orig: SpO2 values from which to estimate
+
+    RETURNS: Estimated PaO2 values for each time-step
+    """
     x_orig[np.isnan(x_orig)] = SPO2_NORMAL_VALUE  # Normal value assumption
     x = x_orig / 100
     x[x == 1] = 0.999
@@ -306,7 +425,14 @@ def ellis(x_orig):
 
 # UT : HIGH
 def correct_left_edge_vent(vent_status_arr, etco2_meas_cnt, etco2_col):
-    """ Corrects the left edge of the ventilation status array, to pin-point the exact conditions"""
+    """ Corrects the left edge of the ventilation status array, to pin-point the exact conditions
+
+    INPUTS:
+    vent_status_arr: Ventilation detection before edge correction took place
+    etco2_meas_cnt: Cumulative number of ETCO2 measurements at each time-step since beginning of stay
+
+    RETURNS: Ventilation annotation with left edge of events corrected
+    """ 
     on_left_edge = False
     in_event = False
 
@@ -332,7 +458,15 @@ def correct_left_edge_vent(vent_status_arr, etco2_meas_cnt, etco2_col):
 def delete_small_continuous_blocks(event_arr, block_threshold=None):
     """ Given an event array, deletes small contiguous blocks that are sandwiched between two other blocks, one of which
         is longer, they both have the same label. For the moment we delete blocks smaller than 30 minutes. Note this
-        requires only a linear pass over the array"""
+        requires only a linear pass over the array
+
+    INPUTS:
+    event_arr: Binary event indication array (0 no event, 1 event)
+    block_threshold: Blocks smaller than this length should be removed
+
+    RETURNS: Event array after small continuous blocks are removed
+
+    """
     block_list = []
     active_block = None
 
@@ -719,6 +853,8 @@ def endpoint_gen_benchmark(configs):
 
     for pidx, pid in enumerate(pids):
 
+        print("Patient {}/{}".format(pidx+1,len(pids)))
+
         if configs["load_batch_at_once"]:
             df_pid = df_batch[df_batch["patientid"] == pid]
         else:
@@ -888,7 +1024,6 @@ def endpoint_gen_benchmark(configs):
                                                    fio2_meas_cnt=pat_cols["fio2_meas_cnt"],
                                                    pao2_meas_cnt=pat_cols["pao2_meas_cnt"],
                                                    spo2_meas_cnt=pat_cols["spo2_meas_cnt"],
-                                                   etco2_meas_cnt=pat_cols["etco2_meas_cnt"],
                                                    vent_mode_col=pat_cols["vent_mode"], vent_status_arr=vent_status_arr,
                                                    event_count=event_count, fio2_avail_arr=status_cols["fio2_avail"],
                                                    suppox_max_ffill=configs["suppox_max_ffill"],
@@ -898,7 +1033,6 @@ def endpoint_gen_benchmark(configs):
                                                    fio2_ambient_arr=status_cols["fio2_ambient"],
                                                    suppox_val=suppox_val, fio2_suppox_arr=status_cols["fio2_suppox"],
                                                    sz_fio2_window=configs["sz_fio2_window"],
-                                                   sz_etco2_window=configs["sz_etco2_window"],
                                                    sz_pao2_window=configs["sz_pao2_window"])
 
         pao2_est_arr = est_out_dict["pao2_est"]
