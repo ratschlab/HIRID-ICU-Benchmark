@@ -16,8 +16,8 @@ def drop_duplicates_pharma(df):
             if len(tmp.recordstatus.unique()) == 1 and tmp.recordstatus.unique()[0] == 780:
                 for i in range(len(tmp)):
                     df.loc[tmp.index[i], "infusionid"] = "%s_%s" % (int(df.loc[tmp.index[i], "infusionid"]), i)
-                tmp = df[(df.pharmaid == pharmaid) & (
-                    df.infusionid.apply(lambda x: "%s_" % (infusionid) in x if type(x) == str else False))]
+                # tmp = df[(df.pharmaid == pharmaid) & (
+                #     df.infusionid.apply(lambda x: "%s_" % (infusionid) in x if type(x) == str else False))]
             elif len(tmp.recordstatus.unique()) == 1 and tmp.recordstatus.unique()[0] == 776:
                 if (tmp.givendose != 0).sum() == 1:
                     df.drop(tmp.index[tmp.givendose == 0], inplace=True)
@@ -116,11 +116,11 @@ def convert_cumul_value_to_rate(df, cumul_urine_id_lst, general_table):
             df_tmp = df_urine[df_urine.variableid == vid]  # table of a single urine variable
 
             index_pre_general_table = df_tmp.index[df_tmp.datetime < esti_adm_time - np.timedelta64(15 * 60 + 30,
-                                                                                                    "s")]  # number of records before general_tableission time
+                                                                                                    "s")]  # number of records before general_admission time
             if len(index_pre_general_table) == 0:
                 pass
             elif len(index_pre_general_table) == 1:
-                # if there's one record before general_tableission, reset datetime from system reset time 12pm to the general_tableission time
+                # if there's one record before general_admission, reset datetime from system reset time 12pm to the general_admission time
                 index_pre_general_table = df_tmp.index[df_tmp.datetime < esti_adm_time]
                 df.loc[index_pre_general_table[0], 'datetime'] = esti_adm_time
             else:
