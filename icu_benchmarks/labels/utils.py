@@ -2,25 +2,16 @@ import numpy as np
 from icu_benchmarks.common.constants import STEPS_PER_HOUR, BINARY_TSH_URINE
 
 
-def merge_apache_groups(apache_ii_group, apache_iv_group, apache_ii_map, apache_iv_map):
-    if np.isfinite(apache_ii_group) and int(apache_ii_group) in apache_ii_map.keys():
-        apache_pat_group = apache_ii_map[int(apache_ii_group)]
-    elif np.isfinite(apache_iv_group) and int(apache_iv_group) in apache_iv_map.keys():
-        apache_pat_group = apache_iv_map[int(apache_iv_group)]
-    else:
-        apache_pat_group = np.nan
-    return apache_pat_group
-
-
 def get_hr_status(hr_col):
     """Return a presence feature on HR given the cumulative counts of HR.
 
-    Presence at time t is valid if there is a HR measurement in th 20min surrounding the index.
+    Presence at time t is valid if there is a HR measurement in th 15min surrounding the index.
+    i.e in [idx-1, idx. idx+1]
     """
 
     hr_status_arr = np.zeros_like(hr_col)
     for jdx in range(hr_col.size):
-        subarr = hr_col[max(0,jdx - 2):min(hr_col.size-1,jdx + 2)]
+        subarr = hr_col[max(0, jdx - 2):min(hr_col.size - 1, jdx + 2)]
         three_steps_hr_diff = subarr[-1] - subarr[0]
         hr_status_arr[jdx] = 1 if three_steps_hr_diff > 0 else 0
 
@@ -121,3 +112,15 @@ def future_urine_output(urine_col, urine_meas_arr, weight_col, rhours=None):
             binary_out_arr[jdx] = 1.0
 
     return reg_out_arr, binary_out_arr
+
+
+def merge_apache_groups(apache_ii_group, apache_iv_group, apache_ii_map, apache_iv_map):
+    """Merges apache II and IV definition to have a unique APACHE label"""
+
+    if np.isfinite(apache_ii_group) and int(apache_ii_group) in apache_ii_map.keys():
+        apache_pat_group = apache_ii_map[int(apache_ii_group)]
+    elif np.isfinite(apache_iv_group) and int(apache_iv_group) in apache_iv_map.keys():
+        apache_pat_group = apache_iv_map[int(apache_iv_group)]
+    else:
+        apache_pat_group = np.nan
+    return apache_pat_group

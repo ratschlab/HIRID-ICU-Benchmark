@@ -139,3 +139,10 @@ def test_hr_status():
     correct_op[7:14] = 1.0
     correct_op[17:] = 1.0
     assert np.all(correct_op == presence_result)
+
+
+def test_get_any_resp_label():
+    test_resp = np.array(["event_1", "event_2", "event_3", 'UNKNOWN'])
+    any_resp = utils.get_any_resp_label(test_resp)
+    assert np.all(any_resp[:3] == 1.0)
+    assert np.isnan(any_resp[-1])
