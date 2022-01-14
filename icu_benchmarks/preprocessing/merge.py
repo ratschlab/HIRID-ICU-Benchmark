@@ -76,7 +76,7 @@ def aggregate_cols(wide_observ, varref):
         varid_cols_avail = list(set(varid_cols).intersection(set(wide_observ.columns)))
 
         if len(varid_cols_avail) > 1:
-            c = wide_observ.loc[:, varid_cols_avail].median(axis=1, numeric_only=True)
+            c = wide_observ.loc[:, varid_cols_avail].median(axis=1, numeric_only=True, skipna=True)
         elif len(varid_cols_avail) == 1:
             c = wide_observ.loc[:, varid_cols_avail[0]]
         else:
