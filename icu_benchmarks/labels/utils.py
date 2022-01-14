@@ -1,6 +1,7 @@
 import numpy as np
 from icu_benchmarks.common.constants import STEPS_PER_HOUR, BINARY_TSH_URINE
 
+
 def merge_apache_groups(apache_ii_group, apache_iv_group, apache_ii_map, apache_iv_map):
     if np.isfinite(apache_ii_group) and int(apache_ii_group) in apache_ii_map.keys():
         apache_pat_group = apache_ii_map[int(apache_ii_group)]
@@ -10,6 +11,7 @@ def merge_apache_groups(apache_ii_group, apache_iv_group, apache_ii_map, apache_
         apache_pat_group = np.nan
     return apache_pat_group
 
+
 def get_hr_status(hr_col):
     """Return a presence feature on HR given the cumulative counts of HR.
 
@@ -18,16 +20,9 @@ def get_hr_status(hr_col):
 
     hr_status_arr = np.zeros_like(hr_col)
     for jdx in range(hr_col.size):
-        if jdx in [0, 1]:
-            n_hr_count = hr_col[jdx + 2]
-        elif jdx == hr_col.size - 1:
-            subarr = hr_col[jdx - 3:jdx + 1]
-            n_hr_count = subarr[-1] - subarr[0]
-        else:
-            subarr = hr_col[jdx - 2:jdx + 2]
-            n_hr_count = subarr[-1] - subarr[0]
-
-        hr_status_arr[jdx] = 1 if n_hr_count > 0 else 0
+        subarr = hr_col[max(0,jdx - 2):min(hr_col.size-1,jdx + 2)]
+        three_steps_hr_diff = subarr[-1] - subarr[0]
+        hr_status_arr[jdx] = 1 if three_steps_hr_diff > 0 else 0
 
     return hr_status_arr
 

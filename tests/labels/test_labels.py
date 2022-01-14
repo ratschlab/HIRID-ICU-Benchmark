@@ -103,7 +103,7 @@ def test_unique_label_at_hours(stay_length_hours, mort_status, at_hours):
         assert np.all(np.isnan(labels))
 
 
-@pytest.mark.parametrize("rhours", ((2,)))
+@pytest.mark.parametrize("rhours", (2 , 4, 8))
 def test_future_urine_output(rhours):
     stay_length = 12 * rhours * STEPS_PER_HOUR
     urine_col = np.zeros(stay_length)
@@ -124,3 +124,18 @@ def test_future_urine_output(rhours):
     # Check the labels are positive for binary
     assert np.all(labels_binary[~np.isnan(labels_binary)] == 1.0)
     assert np.all(labels_reg[~np.isnan(labels_reg)] == np.array([1.0, 2.0]))
+
+
+def test_hr_status():
+    presence = np.zeros(24)
+    meas_idxs = [2, 8, 9, 11, 12, 18, 19, 20, 22]
+
+    presence[meas_idxs] = 1.0
+    cumulative_value = np.cumsum(presence)
+    presence_result = utils.get_hr_status(cumulative_value)
+    
+    correct_op = np.zeros(24)
+    correct_op[1:4] = 1.0
+    correct_op[7:14] = 1.0
+    correct_op[17:] = 1.0
+    assert np.all(correct_op == presence_result)
