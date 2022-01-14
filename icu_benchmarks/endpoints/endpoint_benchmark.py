@@ -17,11 +17,11 @@ from icu_benchmarks.common.constants import STEPS_PER_HOUR, LEVEL1_RATIO_RESP, L
     FRACTION_TSH_CIRC, FRACTION_TSH_RESP, DATETIME, PID, REL_DATETIME, SPO2_NORMAL_VALUE, VENT_ETCO2_TSH, \
     NIV_VENT_MODE, SUPPOX_TO_FIO2
 
-
 PAO2_MIX_SCALE = 57 ** 2
 MINS_PER_STEP = 60 // STEPS_PER_HOUR
 MAX_SUPPOX_KEY = np.array(list(SUPPOX_TO_FIO2.keys())).max()
 MAX_SUPPOX_TO_FIO2_VAL = SUPPOX_TO_FIO2[MAX_SUPPOX_KEY]
+
 
 def load_pickle(fpath):
     """ Given a file path pointing to a pickle file, yields the object pickled in this file
@@ -33,6 +33,7 @@ def load_pickle(fpath):
     """
     with open(fpath, 'rb') as fp:
         return pickle.load(fp)
+
 
 # UT : Mid
 def mix_real_est_pao2(pao2_col, pao2_meas_cnt, pao2_est_arr):
@@ -71,6 +72,7 @@ def mix_real_est_pao2(pao2_col, pao2_meas_cnt, pao2_est_arr):
 
     return final_pao2_arr
 
+
 # UT : Mid
 def kernel_smooth_arr(input_arr, bandwidth=None):
     """ Kernel smooth an input array with a Nadaraya-Watson kernel smoother
@@ -97,6 +99,7 @@ def kernel_smooth_arr(input_arr, bandwidth=None):
     output_arr[np.isfinite(output_arr)] = output_smoothed
     return output_arr
 
+
 # UT : Mid
 def percentile_smooth(signal_col, percentile, win_scope_mins):
     """ Window percentile smoother, where percentile is in the interval [0,100]
@@ -115,6 +118,7 @@ def percentile_smooth(signal_col, percentile, win_scope_mins):
         search_arr = signal_col[max(0, jdx - search_range):min(out_arr.size, jdx + search_range)]
         out_arr[jdx] = np.percentile(search_arr, percentile)
     return out_arr
+
 
 # UT : HIGH
 # TODO: Refactor
@@ -145,6 +149,7 @@ def merge_short_vent_gaps(vent_status_arr, short_gap_hours):
                 vent_status_arr[in_gap_idx:idx] = 1.0
 
     return vent_status_arr
+
 
 # UT : VERY HIGH
 def assign_resp_levels(event_status_arr=None, pf_event_est_arr=None, vent_status_arr=None,
@@ -187,6 +192,7 @@ def assign_resp_levels(event_status_arr=None, pf_event_est_arr=None, vent_status
 
     return event_status_arr
 
+
 # UT : HIGH
 def correct_right_edge_l0(event_status_arr=None, pf_event_est_arr=None,
                           offset_back_windows=None):
@@ -216,6 +222,7 @@ def correct_right_edge_l0(event_status_arr=None, pf_event_est_arr=None,
 
     return event_status_arr
 
+
 # UT : HIGH
 def correct_right_edge_l1(event_status_arr=None, pf_event_est_arr=None,
                           offset_back_windows=None):
@@ -244,6 +251,7 @@ def correct_right_edge_l1(event_status_arr=None, pf_event_est_arr=None,
 
     return event_status_arr
 
+
 # UT : HIGH
 def correct_right_edge_l2(event_status_arr=None, pf_event_est_arr=None,
                           offset_back_windows=None):
@@ -271,6 +279,7 @@ def correct_right_edge_l2(event_status_arr=None, pf_event_est_arr=None,
                 event_status_arr[idx] = "event_2"
 
     return event_status_arr
+
 
 # UT : HIGH
 def correct_right_edge_l3(event_status_arr=None, pf_event_est_arr=None,
@@ -381,6 +390,7 @@ def assemble_out_df(time_col=None, rel_time_col=None, pid_col=None, event_status
     df_out = pd.DataFrame(df_out_dict)
     return df_out
 
+
 # UT : Mid
 # TODO : Refactor
 def delete_short_vent_events(vent_status_arr, short_event_hours):
@@ -408,6 +418,7 @@ def delete_short_vent_events(vent_status_arr, short_event_hours):
                 vent_status_arr[event_start_idx:idx] = 0.0
     return vent_status_arr
 
+
 # UT : HIGH
 # TODO Check there is no hardcoding here
 def ellis(x_orig):
@@ -429,6 +440,7 @@ def ellis(x_orig):
     exp_full = exp_first + exp_second
     return exp_full
 
+
 # UT : HIGH
 def correct_left_edge_vent(vent_status_arr, etco2_meas_cnt, etco2_col):
     """ Corrects the left edge of the ventilation status array, to pin-point the exact conditions
@@ -438,7 +450,7 @@ def correct_left_edge_vent(vent_status_arr, etco2_meas_cnt, etco2_col):
     etco2_meas_cnt: Cumulative number of ETCO2 measurements at each time-step since beginning of stay
 
     RETURNS: Ventilation annotation with left edge of events corrected
-    """ 
+    """
     on_left_edge = False
     in_event = False
 
@@ -565,6 +577,7 @@ def delete_small_continuous_blocks(event_arr, block_threshold=None):
 
     return (out_arr, diff_arr)
 
+
 # UT : Mid
 def gen_circ_failure_ep(event_status_arr=None, map_col=None, lactate_col=None, milri_col=None, dobut_col=None,
                         levosi_col=None, theo_col=None,
@@ -601,7 +614,7 @@ def gen_circ_failure_ep(event_status_arr=None, map_col=None, lactate_col=None, m
         epineph_subarr = epineph_col[max(0, jdx - STEPS_PER_HOUR):min(jdx + STEPS_PER_HOUR, len(event_status_arr))]
         vaso_subarr = vaso_col[max(0, jdx - STEPS_PER_HOUR):min(jdx + STEPS_PER_HOUR, len(event_status_arr))]
         map_crit_arr = ((map_subarr < 65) | (milri_subarr > 0) | (dobut_subarr > 0) | (levosi_subarr > 0) | (
-                    theo_subarr > 0) | (noreph_subarr > 0) | (epineph_subarr > 0) | (vaso_subarr > 0))
+                theo_subarr > 0) | (noreph_subarr > 0) | (epineph_subarr > 0) | (vaso_subarr > 0))
         lact_crit_arr = (lact_subarr > 2)
         map_condition = np.sum(map_crit_arr) >= FRACTION_TSH_CIRC * len(map_crit_arr)
         lact_condition = np.sum(lact_crit_arr) >= FRACTION_TSH_CIRC * len(map_crit_arr)
@@ -609,6 +622,7 @@ def gen_circ_failure_ep(event_status_arr=None, map_col=None, lactate_col=None, m
             circ_status_arr[jdx] = 1.0
 
     return circ_status_arr
+
 
 # UT : V HIGH
 def compute_pao2_fio2_estimates(ratio_arr=None, abs_dtime_arr=None, suppox_async_red_ts=None,
@@ -619,7 +633,6 @@ def compute_pao2_fio2_estimates(ratio_arr=None, abs_dtime_arr=None, suppox_async
                                 fio2_avail_arr=None, suppox_max_ffill=None, ambient_fio2=None,
                                 fio2_ambient_arr=None, suppox_val=None, fio2_suppox_arr=None,
                                 sz_fio2_window=None, sz_pao2_window=None, pao2_avail_col=None):
-
     """ Compute the PaO2 and FiO2 estimates at a particular time-point in the stay
 
     INPUTS: 
@@ -634,7 +647,7 @@ def compute_pao2_fio2_estimates(ratio_arr=None, abs_dtime_arr=None, suppox_async
     abga_window: Length of window in which to detect Arterial blood gas analyses
     spo2_meas_cnt: Cumulative number of real SpO2 measurements since beginning of the stay
     pao2_est_arr: Array to be filled with PaO2 estimates (OUTPUT)
-    fio2_est_arr: Array to be filled with FiO2 estimates (OUTPU)
+    fio2_est_arr: Array to be filled with FiO2 estimates (OUTPUT)
     vent_mode_col: Ventilation mode codes at each timepoint
     vent_status_arr: Ventilation status at each time-point
     event_count: Event count dictionary for debugging purposes
@@ -734,14 +747,15 @@ def compute_pao2_fio2_estimates(ratio_arr=None, abs_dtime_arr=None, suppox_async
         pao2_est_arr[jdx] = pao2_estimate
         fio2_est_arr[jdx] = fio2_val
 
-        out_dict = {}
-        out_dict["pao2_est"] = pao2_est_arr
-        out_dict["fio2_est"] = fio2_est_arr
-        out_dict["fio2_avail"] = fio2_avail_arr
-        out_dict["fio2_suppox"] = fio2_suppox_arr
-        out_dict["fio2_ambient"] = fio2_ambient_arr
+    out_dict = {}
+    out_dict["pao2_est"] = pao2_est_arr
+    out_dict["fio2_est"] = fio2_est_arr
+    out_dict["fio2_avail"] = fio2_avail_arr
+    out_dict["fio2_suppox"] = fio2_suppox_arr
+    out_dict["fio2_ambient"] = fio2_ambient_arr
 
-        return out_dict
+    return out_dict
+
 
 # UT : Mid
 def delete_low_density_hr_gap(vent_status_arr, hr_status_arr, configs=None):
@@ -838,7 +852,6 @@ def load_relevant_columns(df_pid, var_map):
 
 
 def initialize_status_cols(fio2_col=None):
-
     """ Initialize status columns with empty values
     
     INPUTS:
@@ -846,7 +859,7 @@ def initialize_status_cols(fio2_col=None):
 
     RETURNS: Dictionary with initialize status column arrays
     """
-    
+
     stat_arr = {}
 
     event_status_arr = np.zeros(fio2_col.size, dtype="<S10")
@@ -895,7 +908,7 @@ def suppox_to_fio2(suppox_val):
 
     RETURNS: Estimated FiO2 values at time-points
     """
-    
+
     if suppox_val > MAX_SUPPOX_KEY:
         return MAX_SUPPOX_TO_FIO2_VAL
     else:
@@ -908,7 +921,7 @@ def endpoint_gen_benchmark(configs):
     INPUTS:
     configs: Configuration file dictionary
     """
-    
+
     var_map = configs["VAR_IDS"]
     sz_window = configs["length_fw_window"]
     abga_window = configs["length_ABGA_window"]
@@ -929,8 +942,7 @@ def endpoint_gen_benchmark(configs):
         logging.info("WARNING: Input file does not exist, exiting...")
         sys.exit(1)
 
-    if configs["load_batch_at_once"]:
-        df_batch = pd.read_parquet(os.path.join(imputed_f, "batch_{}.parquet".format(batch_id)))
+    df_batch = pd.read_parquet(os.path.join(imputed_f, "batch_{}.parquet".format(batch_id)))
 
     logging.info("Loaded imputed data done...")
     cand_raw_batch = glob.glob(os.path.join(merged_f, "part-{}.parquet".format(batch_id)))
@@ -947,13 +959,9 @@ def endpoint_gen_benchmark(configs):
 
     for pidx, pid in enumerate(pids):
 
-        print("Patient {}/{}".format(pidx+1,len(pids)))
+        print("Patient {}/{}".format(pidx + 1, len(pids)))
 
-        if configs["load_batch_at_once"]:
-            df_pid = df_batch[df_batch["patientid"] == pid]
-        else:
-            df_pid = pd.read_parquet(os.path.join(imputed_f, "batch_{}.parquet".format(batch_id)),
-                                     filters=[("patientid", "=", pid)])
+        df_pid = df_batch[df_batch["patientid"] == pid]
 
         if df_pid.shape[0] == 0:
             logging.info("WARNING: No input data for PID: {}".format(pid))
@@ -1058,8 +1066,9 @@ def endpoint_gen_benchmark(configs):
             if hr_meas_win:
                 status_cols["hr_status"][jdx] = 1
 
+        vent_status_arr = status_cols["vent_status"]
         if configs["detect_hr_gaps"]:
-            vent_status_arr = delete_low_density_hr_gap(status_cols["vent_status"], status_cols["hr_status"],
+            vent_status_arr = delete_low_density_hr_gap(vent_status_arr, status_cols["hr_status"],
                                                         configs=configs)
 
         if configs["merge_short_vent_gaps"]:
@@ -1067,9 +1076,6 @@ def endpoint_gen_benchmark(configs):
 
         if configs["delete_short_vent_events"]:
             vent_status_arr = delete_short_vent_events(vent_status_arr, configs["short_event_hours"])
-
-        # vent_status_arr=correct_left_edge_vent(vent_status_arr, etco2_meas_cnt, etco2_col)
-        # vent_status_arr=correct_right_edge_vent(vent_status_arr, etco2_meas_cnt, etco2_col)
 
         # Ventilation period array
         vent_period_arr = np.copy(vent_status_arr)
@@ -1127,7 +1133,8 @@ def endpoint_gen_benchmark(configs):
                                                    fio2_ambient_arr=status_cols["fio2_ambient"],
                                                    suppox_val=suppox_val, fio2_suppox_arr=status_cols["fio2_suppox"],
                                                    sz_fio2_window=configs["sz_fio2_window"],
-                                                   sz_pao2_window=configs["sz_pao2_window"])
+                                                   sz_pao2_window=configs["sz_pao2_window"],
+                                                   pao2_avail_col=status_cols["pao2_avail"])
 
         pao2_est_arr = est_out_dict["pao2_est"]
         fio2_est_arr = est_out_dict["fio2_est"]
@@ -1156,10 +1163,7 @@ def endpoint_gen_benchmark(configs):
         if configs["post_smooth_pf_ratio"]:
             ratio_arr = kernel_smooth_arr(ratio_arr, bandwidth=configs["post_smoothing_bandwidth"])
 
-        if configs["pao2_version"] == "ellis_basic":
-            pf_event_est_arr = np.copy(ratio_arr)
-        elif configs["pao2_version"] == "original":
-            assert (False)
+        pf_event_est_arr = np.copy(ratio_arr)
 
         event_status_arr = assign_resp_levels(event_status_arr=status_cols["event_status"],
                                               pf_event_est_arr=pf_event_est_arr,
