@@ -1,5 +1,5 @@
 from pathlib import Path
-
+import numpy as np
 import pandas as pd
 import pytest
 
@@ -17,6 +17,20 @@ def varref():
     varref, _ = lookups.read_reference_table(PREPROCESSING_RES / 'varref.tsv')
     return varref
 
+def test_aggregate_cols(varref):
+        
+    temp_mid = 2
+    temp_ids = [400, 410, 7100]
+    temp_val = [[37,np.nan, np.nan, 36],
+                [np.nan, 38, np.nan, np.nan],
+                [np.nan,np.nan,37.5, 38]]
+    exp_val = [37, 38, 37.5, 37]
+    df = pd.DataFrame({f"v{vid}": temp_val[j] 
+                       for j,vid in enumerate(temp_ids)})
+    
+    df_res = merge.aggregate_cols(df, varref)
+    assert list(df_res[f"vm{temp_mid}"]) == exp_val
+    
 
 def test_drop_out_of_range_values(varref):
     length = 3
@@ -62,3 +76,4 @@ def test_drop_duplicates_non_pharma(values, expected_values):
 
     assert len(df_ret) == len(expected_values)
     assert list(df_ret[VALUE]) == expected_values
+
