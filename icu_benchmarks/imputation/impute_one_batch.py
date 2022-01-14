@@ -5,20 +5,21 @@ import os
 import os.path
 import pickle
 import sys
+import argparse
 
 import gin
 import matplotlib
 import numpy as np
 import pandas as pd
 
-matplotlib.use("pdf")
-
-import icu_benchmarks.imputation.forward_filling as bern_forward_fill
 from icu_benchmarks.common.constants import PID
+import icu_benchmarks.imputation.forward_filling as endpoint_ff
+
+matplotlib.use("pdf")
 
 
 def value_empty(size, default_val, dtype=None):
-    ''' Returns a vector filled with elements of a specific value'''
+    """ Returns a vector filled with elements of a specific value"""
 
     if dtype is not None:
         tmp_arr = np.empty(size, dtype=dtype)
@@ -30,14 +31,14 @@ def value_empty(size, default_val, dtype=None):
 
 
 def empty_nan(sz):
-    ''' Returns an empty NAN vector of specified size'''
+    """ Returns an empty NAN vector of specified size"""
     arr = np.empty(sz)
     arr[:] = np.nan
     return arr
 
 
 def load_pickle(fpath):
-    ''' Given a file path pointing to a pickle file, yields the object pickled in this file'''
+    """ Given a file path pointing to a pickle file, yields the object pickled in this file"""
     with open(fpath, 'rb') as fp:
         return pickle.load(fp)
 
@@ -45,10 +46,10 @@ def load_pickle(fpath):
 def impute_dynamic_df(patient_df, pid=None, df_static=None, typical_weight_dict=None,
                       median_bmi_dict=None, configs=None, schema_dict=None,
                       interval_median_dict=None, interval_iqr_dict=None):
-    ''' Transformer method, taking as input a data-frame with irregularly sampled input data. The method
+    """ Transformer method, taking as input a data-frame with irregularly sampled input data. The method
         assumes that the data-frame contains a time-stamp column, and the data-frame is sorted along the first
         axis in non-decreasing order with respect to the timestamp column. Pass the <pid> of the patient stay
-        as additional information'''
+        as additional information"""
     static_table = df_static[df_static["patientid"] == pid]
     max_grid_length_secs = configs["max_grid_length_days"] * 24 * 3600
 
@@ -66,8 +67,8 @@ def impute_dynamic_df(patient_df, pid=None, df_static=None, typical_weight_dict=
     static_gender = str(static_table["sex"].values[0]).strip()
     assert (static_gender in ["F", "M", "U"])
 
-    ## If either the endpoints or the features don't exist, log the failure but do nothing, the missing patients can be
-    #  latter added as a new group to the output H5
+    # If either the endpoints or the features don't exist, log the failure but do nothing, the missing patients can be
+    # latter added as a new group to the output H5
     if patient_df.shape[0] == 0:
         logging.info("WARNING: p{} has missing features, skipping output generation...".format(pid))
         return None
@@ -113,12 +114,12 @@ def impute_dynamic_df(patient_df, pid=None, df_static=None, typical_weight_dict=
     imputed_df_dict[configs["rel_datetime_key"]] = time_grid
     imputed_df_dict[configs["abs_datetime_key"]] = time_grid_abs
 
-    ## There is nothing to do if the patient has no records, just return...
+    # There is nothing to do if the patient has no records, just return...
     if n_ts == 0:
         logging.info("WARNING: p{} has an empty record, skipping output generation...".format(pid))
         return None
 
-    ## Initialize the storage for the imputed time grid, NANs for the non-pharma, 0 for pharma.
+    # Initialize the storage for the imputed time grid, NANs for the non-pharma, 0 for pharma.
     for col in all_keys:
         if col[:2] == "pm":
             imputed_df_dict[col] = np.zeros(time_grid.size)
@@ -133,9 +134,9 @@ def impute_dynamic_df(patient_df, pid=None, df_static=None, typical_weight_dict=
     all_keys.remove("vm131")
     all_keys = ["vm131"] + all_keys
 
-    ## Impute all variables independently, with the two relevant cases pharma variable and other variable,
-    #  distinguishable from the variable prefix. We enforce that weight is the first variable to be imputed, so that
-    #  its time-gridded information can later be used by other custom formulae imputations that depend on it.
+    # Impute all variables independently, with the two relevant cases pharma variable and other variable,
+    # distinguishable from the variable prefix. We enforce that weight is the first variable to be imputed, so that
+    # its time-gridded information can later be used by other custom formulae imputations that depend on it.
     for var_idx, variable in enumerate(all_keys):
         df_var = patient_df[variable]
         assert (n_ts == df_var.shape[0] == norm_ts.size)
@@ -152,7 +153,7 @@ def impute_dynamic_df(patient_df, pid=None, df_static=None, typical_weight_dict=
         observ_ts = norm_ts[observ_idx]
         observ_val = raw_col[observ_idx]
 
-        ## No values have been observed for this variable, it has to be imputed using the normal value.
+        # No values have been observed for this variable, it has to be imputed using the normal value.
         if observ_val.size == 0:
             est_vals = value_empty(time_grid.size, global_impute_val)
             imputed_df[variable] = est_vals
@@ -177,15 +178,15 @@ def impute_dynamic_df(patient_df, pid=None, df_static=None, typical_weight_dict=
         if imp_mode == "Forward fill indefinite":
             fill_interval_secs = np.inf
         else:
-            assert (False)
+            assert False
 
-        est_vals, cum_count_ts, time_to_last_ms = bern_forward_fill.impute_forward_fill_simple(observ_ts, observ_val,
-                                                                                               time_grid,
-                                                                                               global_impute_val,
-                                                                                               configs["grid_period"],
-                                                                                               var_type=None,
-                                                                                               fill_interval_secs=fill_interval_secs,
-                                                                                               variable_id=variable)
+        est_vals, cum_count_ts, time_to_last_ms = endpoint_ff.impute_forward_fill_simple(observ_ts, observ_val,
+                                                                                         time_grid,
+                                                                                         global_impute_val,
+                                                                                         configs["grid_period"],
+                                                                                         var_type=None,
+                                                                                         fill_interval_secs=fill_interval_secs,
+                                                                                         variable_id=variable)
 
         if not configs["impute_normal_value_as_nan"]:
             assert (np.isfinite(est_vals).all())
@@ -202,7 +203,7 @@ def is_df_sorted(df, colname):
 
 
 def execute(configs):
-    ''' Batch wrapper that loops through the patients of one the 50 batches'''
+    """ Batch wrapper that loops through the patients of one the 50 batches"""
     batch_idx = configs["batch_idx"]
 
     merged_reduced_base_path = configs["bern_reduced_merged_path"]

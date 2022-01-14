@@ -79,7 +79,7 @@ class ICUVariableLengthDataset(Dataset):
         windows = self.h5_loader.patient_windows[self.split][:]
         resampling = self.h5_loader.label_resampling
         logging.info('Gathering the samples for split ' + self.split)
-        for start, stop, id in tqdm(windows):
+        for start, stop, id_ in tqdm(windows):
             label = self.h5_loader.labels[self.split][start:stop][::resampling][:self.maxlen]
             sample = self.h5_loader.lookup_table[self.split][start:stop][::resampling][:self.maxlen][~np.isnan(label)]
             if self.h5_loader.feature_table is not None:

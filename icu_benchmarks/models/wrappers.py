@@ -148,7 +148,7 @@ class DLWrapper(object):
 
         self.set_metrics()
         metrics = self.metrics
-        
+
         torch.autograd.set_detect_anomaly(True)  # Check for any nans in gradients
         if not train_dataset.h5_loader.on_RAM:
             self.n_worker = 1
@@ -231,8 +231,8 @@ class DLWrapper(object):
             test_metrics['loss'] = test_loss
             pickle.dump(test_metrics, f)
         for key, value in test_metrics.items():
-            if isinstance(value,float):
-                logging.info('Test {} :  {}'.format(key,value))
+            if isinstance(value, float):
+                logging.info('Test {} :  {}'.format(key, value))
 
     def evaluate(self, eval_loader, metrics, weight):
         self.encoder.eval()
@@ -297,7 +297,7 @@ class MLWrapper(object):
 
     @gin.configurable(module='MLWrapper')
     def train(self, train_dataset, val_dataset, weight,
-              patience=gin.REQUIRED, save_weights=False):
+              patience=gin.REQUIRED, save_weights=True):
 
         train_rep, train_label = train_dataset.get_data_and_labels()
         val_rep, val_label = val_dataset.get_data_and_labels()
@@ -346,14 +346,14 @@ class MLWrapper(object):
             else:
                 self.save_weights(save_path=os.path.join(self.logdir, 'model.joblib'), model_type=model_type)
 
-
         with open(os.path.join(self.logdir, 'val_metrics.pkl'), 'wb') as f:
             pickle.dump(val_metric_results, f)
 
     def test(self, dataset, weight):
         test_rep, test_label = dataset.get_data_and_labels()
         self.set_metrics(test_label)
-        if "MAE" in self.metrics.keys() or isinstance(self.model, lightgbm.basic.Booster): # If we reload a LGBM classifier
+        if "MAE" in self.metrics.keys() or isinstance(self.model,
+                                                      lightgbm.basic.Booster):  # If we reload a LGBM classifier
             test_pred = self.model.predict(test_rep)
         else:
             test_pred = self.model.predict_proba(test_rep)

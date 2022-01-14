@@ -5,5 +5,5 @@ python -m icu_benchmarks.run evaluate \
                              -t Dynamic_CircFailure_12Hours\
                              -o True \
                              --penalty 'l2' \
-                             --c_parameter 10 \
+                             --c_parameter 0.01 \
 

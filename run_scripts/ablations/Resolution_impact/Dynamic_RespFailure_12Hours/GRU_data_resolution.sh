@@ -4,9 +4,9 @@ python -m icu_benchmarks.run train \
                              -l logs/Data_Resolution/GRU/ \
                              -t Dynamic_RespFailure_12Hours\
                              -o True \
-                             -lr 3e-4\
-                             --hidden 64 \
-                             --do 0.0 \
+                             -lr 1e-4\
+                             --hidden 256 \
+                             --do 0.4 \
                              --depth 3 \
 			                 -r 1 2 6 12 \
 			                 -rl 12 \

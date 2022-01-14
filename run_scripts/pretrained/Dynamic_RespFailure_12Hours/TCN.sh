@@ -4,10 +4,10 @@ python -m icu_benchmarks.run evaluate \
                              -l files/pretrained_weights/TCN/ \
                              -t Dynamic_RespFailure_12Hours \
                              -o True \
-                             --hidden 256 \
+                             --hidden 64 \
                              -lr 3e-4\
-                             --do 0.0 \
-                             --kernel 2 \
+                             --do 0.4 \
+                             --kernel 8 \
 
 
 

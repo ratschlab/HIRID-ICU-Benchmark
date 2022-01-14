@@ -6,7 +6,7 @@ python -m icu_benchmarks.run evaluate \
                              -o True \
                              -lr 3e-4\
                              --hidden 256 \
-                             --do 0.2 \
-                             --depth 3 \
+                             --do 0.4 \
+                             --depth 2 \
 
 

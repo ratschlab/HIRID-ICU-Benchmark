@@ -43,8 +43,8 @@ def gather_stats_over_dataset(parts, to_standard_scale, to_min_max_scale, train_
                         fill_string=fill_string)
         dfs = dfs.replace(np.inf, np.nan).replace(-np.inf, np.nan)
 
-        # don't rely on sklearn StandardScaler as partial_fit does not seem to work correctly if in one iteration all values
-        # of a column are nan (i.e. the then mean becomes nan)
+        # don't rely on sklearn StandardScaler as partial_fit does not seem to work correctly
+        # if in one iteration all values of a column are nan (i.e. the then mean becomes nan)
         means.extend(dfs[s].mean())
         stds.extend(dfs[s].std(ddof=0))  # ddof=0 to be consistent with sklearn StandardScalar
         gc.collect()
@@ -53,7 +53,7 @@ def gather_stats_over_dataset(parts, to_standard_scale, to_min_max_scale, train_
 
 
 def _normalize_cols(df, output_cols):
-    cols_to_drop = [ c for c in set(df.columns).difference(output_cols) if c != constants.PID]
+    cols_to_drop = [c for c in set(df.columns).difference(output_cols) if c != constants.PID]
     if cols_to_drop:
         logging.warning(f"Dropping columns {cols_to_drop} as they don't appear in output columns")
     df = df.drop(columns=cols_to_drop)
@@ -73,7 +73,8 @@ def _normalize_cols(df, output_cols):
     return df
 
 
-def to_ml(save_path, parts, labels, features, endpoint_names, df_var_ref, fill_string, output_cols, split_path=None, random_seed=42):
+def to_ml(save_path, parts, labels, features, endpoint_names, df_var_ref, fill_string, output_cols, split_path=None,
+          random_seed=42):
     df_part = pd.read_parquet(parts[0])
     data_cols = df_part.columns
 
@@ -92,7 +93,8 @@ def to_ml(save_path, parts, labels, features, endpoint_names, df_var_ref, fill_s
     (means, stds), minmax_scaler = gather_stats_over_dataset(parts, to_standard_scale, to_min_max_scale,
                                                              split_ids['train'], fill_string)
 
-    # for every train, val, test split keep how many records have already been written (needed to compute correct window position)
+    # for every train, val, test split keep how many records
+    # have already been written (needed to compute correct window position)
     output_offsets = {}
 
     features_available = features
@@ -107,7 +109,6 @@ def to_ml(save_path, parts, labels, features, endpoint_names, df_var_ref, fill_s
             [constants.PID, constants.REL_DATETIME] + list(endpoint_names)]
         df_label = df_label.rename(columns={constants.REL_DATETIME: constants.DATETIME})
         df_label[constants.DATETIME] = df_label[constants.DATETIME] / 60.0
-
 
         # align indices between labels df and common df
         df_label = df_label.set_index([constants.PID, constants.DATETIME])
@@ -220,8 +221,11 @@ def save_to_h5_with_tasks(save_path, col_names, task_names, feature_names, data_
     Args:
         save_path: Path to save the dataset to.
         col_names: List of names the variables in the dataset.
+        task_names: List of names for the tasks in the dataset.
+        feature_names: List of names for the features in the dataset.
         data_dict: Dict with an array for each split of the data
-        label_dict: (Optional) Dict with each split and and labels array in same order as lookup_table.
+        label_dict: (Optional) Dict with each split and labels array in same order as lookup_table.
+        features_dict: Dict with each split and features array in same order as lookup_table.
         patient_windows_dict: Dict containing a array for each split such that each row of the array is of the type
         [start_index, stop_index, patient_id].
     Returns:
@@ -293,7 +297,7 @@ def get_var_types(columns, df_var_ref):
     binary_values = list(np.unique(df_var_ref[df_var_ref['metavariableunit'] == 'Binary']['metavariablename']))
     binary_values += ['sex']
     to_standard_scale = [k for k in np.unique(df_var_ref['metavariablename'].astype(str)) if
-                         not k in cat_values + binary_values] + ['age', 'height']
+                         k not in cat_values + binary_values] + ['age', 'height']
     to_standard_scale = [c for c in to_standard_scale if c in columns]
 
     to_min_max_scale = [constants.DATETIME, 'admissiontime', 'height']

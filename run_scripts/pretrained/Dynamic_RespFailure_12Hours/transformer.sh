@@ -6,10 +6,10 @@ python -m icu_benchmarks.run evaluate \
                              -o True \
                              -lr 1e-4\
                              -bs 8\
-                             --hidden 128 \
-                             --do 0.3 \
-                             --do_att 0.2 \
-                             --depth 1 \
+                             --hidden 64 \
+                             --do 0.0 \
+                             --do_att 0.3 \
+                             --depth 2 \
                              --heads 1 \
 
 

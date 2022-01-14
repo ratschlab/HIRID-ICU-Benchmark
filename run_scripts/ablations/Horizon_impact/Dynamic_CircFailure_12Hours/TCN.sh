@@ -3,8 +3,7 @@ python -m icu_benchmarks.run train \
                              -c configs/hirid/Classification/TCN.gin \
                              -l logs/hirid/ablation/Horizon/TCN/ \
                              -t Dynamic_CircFailure_12Hours\
-                             -o True \
-                             --hidden 32 \
+                             --hidden 256 \
                              -lr 3e-4\
                              --do 0.1 \
                              --kernel 4 \

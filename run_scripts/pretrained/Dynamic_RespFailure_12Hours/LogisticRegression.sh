@@ -5,5 +5,5 @@ python -m icu_benchmarks.run evaluate \
                              -t Dynamic_RespFailure_12Hours\
                              -o True \
                              --penalty 'l2' \
-                             --c_parameter 0.1 \
+                             --c_parameter 0.001 \
 

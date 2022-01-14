@@ -2,7 +2,8 @@ import gin
 import numpy as np
 import torch
 import torch.nn as nn
-from icu_benchmarks.models.layers import TransformerBlock, LocalBlock, parrallel_recomb, TemporalBlock, SparseBlock, PositionalEncoding
+from icu_benchmarks.models.layers import TransformerBlock, LocalBlock, parrallel_recomb,\
+    TemporalBlock, SparseBlock, PositionalEncoding
 
 
 @gin.configurable('LSTM')
@@ -79,10 +80,9 @@ class Transformer(nn.Module):
             x = self.pos_encoder(x)
         x = self.tblocks(x)
         pred = self.logit(x)
-        w_input = list(self.input_embedding.parameters())[0]
-        l1_norm_input = torch.torch.norm(w_input, 1)
 
-        return pred, l1_norm_input * self.l1_reg
+        return pred
+
 
 @gin.configurable('LocalTransformer')
 class LocalTransformer(nn.Module):
@@ -112,10 +112,8 @@ class LocalTransformer(nn.Module):
             x = self.pos_encoder(x)
         x = self.tblocks(x)
         pred = self.logit(x)
-        w_input = list(self.input_embedding.parameters())[0]
-        l1_norm_input = torch.torch.norm(w_input, 1)
 
-        return pred, l1_norm_input * self.l1_reg
+        return pred
 
 
 @gin.configurable('NaiveSparseTransformer')

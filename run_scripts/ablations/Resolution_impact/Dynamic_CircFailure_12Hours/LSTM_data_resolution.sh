@@ -6,8 +6,8 @@ python -m icu_benchmarks.run train \
                              -o True \
                              -lr 3e-4\
                              --hidden 256 \
-                             --do 0.2 \
-                             --depth 3 \
+                             --do 0.4 \
+                             --depth 2 \
 			                 -r 1 2 6 12 \
 			                 -rl 12 \
 			                 -sd 1111 2222 3333 4444 5555 \
