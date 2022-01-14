@@ -143,6 +143,6 @@ def test_hr_status():
 
 def test_get_any_resp_label():
     test_resp = np.array(["event_1", "event_2", "event_3", 'UNKNOWN'])
-    any_resp = utils.get_any_resp_label(test_resp)
+    any_resp = utils.get_any_resp_label(test_resp).astype(float)
     assert np.all(any_resp[:3] == 1.0)
     assert np.isnan(any_resp[-1])
