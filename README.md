@@ -7,6 +7,14 @@ We then detail the different features of our pipeline and how to use them as sho
 
 ![Figure](docs/figures/Detailed-pipe-benchmark.png)
 
+## Update for Failure Tasks (14/01/2022)
+
+If you are using the benchmark on online failure tasks `Dynamic_CircFailure12Hours` and `Dynamic_RespFailure12Hours`, **we fixed an issue with the labels and you need to recompute them!**
+
+Indeed, only a subset of failure events was labeled making these tasks easier. Benchmark conclusions made in the paper have not changed and `lightGBM` still outperforms all DL methods. Exact values can be found in the manuscript. 
+
+All pre-trained weights have also been updated. 
+
 ## Key Resources
 We build our work on previously released data, models, and metrics. To help users which might be unfamiliar with them we provide in this section some related documentation.
 ### HiRID data
