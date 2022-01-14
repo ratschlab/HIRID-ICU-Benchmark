@@ -785,7 +785,15 @@ def delete_low_density_hr_gap(vent_status_arr, hr_status_arr, configs=None):
 
 
 def load_relevant_columns(df_pid, var_map):
-    """ Loads the relevant columns from the patient stay"""
+    """ Loads the relevant columns from the patient stay
+    
+    INPUTS: 
+    df_pid: Pandas data-frame of the imputed values for a patient
+    var_map: Map of the meta-variable IDs of particular channels
+
+    RETURNS: Dictionary with relevant channel columns
+
+    """
     pat_cols = {}
 
     pat_cols["fio2"] = np.array(df_pid[var_map["FiO2"]])
@@ -830,6 +838,15 @@ def load_relevant_columns(df_pid, var_map):
 
 
 def initialize_status_cols(fio2_col=None):
+
+    """ Initialize status columns with empty values
+    
+    INPUTS:
+    fio2_col: Used for length computation
+
+    RETURNS: Dictionary with initialize status column arrays
+    """
+    
     stat_arr = {}
 
     event_status_arr = np.zeros(fio2_col.size, dtype="<S10")
@@ -871,7 +888,14 @@ def initialize_status_cols(fio2_col=None):
 
 
 def suppox_to_fio2(suppox_val):
-    """ Conversion of supplemental oxygen to FiO2 estimated value"""
+    """ Conversion of supplemental oxygen to FiO2 estimated value
+
+    INPUTS: 
+    suppox_val: Supplementary oxygen values
+
+    RETURNS: Estimated FiO2 values at time-points
+    """
+    
     if suppox_val > MAX_SUPPOX_KEY:
         return MAX_SUPPOX_TO_FIO2_VAL
     else:
@@ -879,6 +903,12 @@ def suppox_to_fio2(suppox_val):
 
 
 def endpoint_gen_benchmark(configs):
+    """ Endpoint generation function for one batch of patients
+
+    INPUTS:
+    configs: Configuration file dictionary
+    """
+    
     var_map = configs["VAR_IDS"]
     sz_window = configs["length_fw_window"]
     abga_window = configs["length_ABGA_window"]
