@@ -274,7 +274,7 @@ def correct_right_edge_l1(event_status_arr=None, pf_event_est_arr=None,
     TESTS:
     1) Event blocks are never modified if they are not adjacent to a level 1 block.
     2) The right edge of an event1 block is corrected if required by the pf_event_est_arr values
-    3) The right edge of an event1 block is not modifie if the values in 
+    3) The right edge of an event1 block is not modified if the values in 
        pf_event_est_arr do not indicate this.
     """
     on_right_edge = False
@@ -305,6 +305,12 @@ def correct_right_edge_l2(event_status_arr=None, pf_event_est_arr=None,
     offset_back_windows: Do not process edge windows at the end of the stay
 
     RETURNS: Event status array with right edge of L2 zones corrected
+
+    TESTS: 
+    1) Event blocks are never modified if they are not adjacent to a level2 block.
+    2) The right edge of an event2 block is corrected if required by the pf_event_est_arr values
+    3) The right edge of an event2 block is not modified if the values in 
+       pf_event_est_arr do not indicate this.
     """
     on_right_edge = False
     in_event = False
@@ -335,6 +341,12 @@ def correct_right_edge_l3(event_status_arr=None, pf_event_est_arr=None,
     offset_back_windows: Do not process edge windows at the end of the stay
 
     RETURNS: Event status array with right edge of L3 zones corrected
+
+    TESTS:
+    1) Event blocks are never modified if they are not adjacent to a level3 block.
+    2) The right edge of an event3 block is corrected if required by the pf_event_est_arr values
+    3) The right edge of an event3 block is not modified if the values in 
+       pf_event_est_arr do not indicate this.
     """
 
     on_right_edge = False
@@ -394,6 +406,13 @@ def assemble_out_df(time_col=None, rel_time_col=None, pid_col=None, event_status
 
     RETURNS: Complete endpoint data-frame for a patient
 
+    TESTS
+    1) Input arrays are not modified
+    2) The output data-frame has all required columns
+    3) The columns output in the data-frame have the correct types and maximal set of unique values.
+    4) Relative date-time is increasing sequence equally spaced.
+    5) PID column has one unique value.
+
     """
     df_out_dict = {}
 
@@ -444,6 +463,11 @@ def delete_short_vent_events(vent_status_arr, short_event_hours):
     short_event_hours: Threshold in hours when an event is considered "small"
 
     RETURNS: Ventilation status array with small events removed
+
+    TESTS:
+    1) Short events shorted or equal to the threshold are indeed deleted
+    2) Events longer than the threshold are not deleted.
+    3) Non-events are never modified.
     """
     in_event = False
     event_length = 0
@@ -472,6 +496,9 @@ def ellis(x_orig):
     x_orig: SpO2 values from which to estimate
 
     RETURNS: Estimated PaO2 values for each time-step
+
+    TESTS:
+    1) The mathematical formulae is correctly implemented at each time-point.
     """
     x_orig[np.isnan(x_orig)] = SPO2_NORMAL_VALUE  # Normal value assumption
     x = x_orig / 100
@@ -493,6 +520,11 @@ def correct_left_edge_vent(vent_status_arr, etco2_meas_cnt, etco2_col):
     etco2_meas_cnt: Cumulative number of ETCO2 measurements at each time-step since beginning of stay
 
     RETURNS: Ventilation annotation with left edge of events corrected
+
+    TESTS:
+    1) The right edge of ventilation events is never modified
+    2) The left edge is correctly modified if the condition on EtCo2 takes place
+    3) The left edge is not changed if the condition on EtCO2 is not satisfied.
     """
     on_left_edge = False
     in_event = False
@@ -522,10 +554,19 @@ def delete_small_continuous_blocks(event_arr, block_threshold=None):
         requires only a linear pass over the array
 
     INPUTS:
-    event_arr: Binary event indication array (0 no event, 1 event)
+    event_arr: Event array (0 no event, 1 event, or discrete for the case of respiratory event labels)
     block_threshold: Blocks smaller than this length should be removed
 
     RETURNS: Event array after small continuous blocks are removed
+
+    TESTS:
+    1) A sandwiched block between two events of the same label is correctly changed, if it has smaller 
+       length than the threshold
+    2) A sandwiched block between two events of the same label is not changed, if its length
+       is longer than the threshold.
+    3) Blocks which are adjacent to two blocks of different labels are never modified.
+    4) A block is never modified if its neighbouring block are not both longer than it.
+    5) A block is never modified if one of its neighbouring blocks is not longer than the block length threshold.
 
     """
     block_list = []
