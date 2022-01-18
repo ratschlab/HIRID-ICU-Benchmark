@@ -836,6 +836,24 @@ def compute_pao2_fio2_estimates(ratio_arr=None, abs_dtime_arr=None, suppox_async
     RETURNS: Estimated PaO2 / FiO2 values at a time-point, and the 3 status arrays of the way FiO2 
              was estimated at a particular time-point.
 
+    TESTS:
+    1) Following arrays are not modified (ratio_arr, abs_dtime_arr, fio2_col,
+       fio2_meas_cnt, pao2_meas_cnt, pao2_col, spo2_col, spo2_meas_cnt, 
+       vent_mode_col ,vent_status_arr. suppox_val, pao2_avail_col)
+    2) FiO2 value is correctly used if FiO2 is measured and or patient is in non-invasive or invasive
+       ventilation for the FiO2 estimate.
+    3) FiO2 value is correctly estimated with ambient air if there was no recent supplementary oxygen 
+       measured.
+    4) FiO2 value is correctly estimated with supplementary oxygen if there was a recent such variable.
+    5) PaO2 value is correctly estimated from its last measurement if it was just measured.
+    6) PaO2 value is estimated from a previous SpO2 measurement with the Ellis model
+    7) PaO2 value is estimated using a default SpO2 value assumption if the last SpO2 measurement was too far away
+       in time from the grid point.
+    8) The fio2_avail_arr has 1 at those time-points where a recent measurement was available.
+    9) The fio2_suppox_arr has 1 at those time-points where FiO2 was estimated from suppox values, and no FiO
+       measurement was recently available.
+    10) The fio2_ambient_arr has 1 if neither recent suppox or FiO2 was available for estimation in a recent
+        window
     """
 
     # Array pointers tracking the current active value of each type
