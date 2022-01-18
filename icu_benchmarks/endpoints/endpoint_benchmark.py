@@ -164,6 +164,7 @@ def merge_short_vent_gaps(vent_status_arr, short_gap_hours):
 
     RETURNS: Ventilator status array with gaps removed
 
+    TESTS:
     1) Gaps of larger length than short_gap_hours are not removed
     2) A gap of shorter length is removed
     3) The input array is not modified
@@ -353,6 +354,12 @@ def correct_right_edge_l2(event_status_arr=None, pf_event_est_arr=None,
     2) The right edge of an event2 block is corrected if required by the pf_event_est_arr values
     3) The right edge of an event2 block is not modified if the values in 
        pf_event_est_arr do not indicate this.
+
+    EXAMPLE:
+    event_status_arr: [2,2,2,2,1,1,1,...]
+    pf_event_est_arr: [188, 169, 155, 210, 220,230,225, ...
+    offset_back_windows: e.g. 12 (~1 hour)
+    output: [2,2,2,1,1,1,1, ...]
     """
     on_right_edge = False
     in_event = False
@@ -389,6 +396,12 @@ def correct_right_edge_l3(event_status_arr=None, pf_event_est_arr=None,
     2) The right edge of an event3 block is corrected if required by the pf_event_est_arr values
     3) The right edge of an event3 block is not modified if the values in 
        pf_event_est_arr do not indicate this.
+
+    EXAMPLE:
+    event_status_arr: [3,3,3,2,2,2,1,1,...]
+    pf_event_est_arr: [89, 99, 95, 92, 110, 160, 210, 220, ...]
+    offset_back_windows: e.g 12 (~1 hour)
+    output: [3,3,3,3,2,2,1,1,...]
     """
 
     on_right_edge = False
@@ -455,6 +468,8 @@ def assemble_out_df(time_col=None, rel_time_col=None, pid_col=None, event_status
     4) Relative date-time is increasing sequence equally spaced.
     5) PID column has one unique value.
 
+    EXAMPLE: 
+    Input 1D arrays with correct types
     """
     df_out_dict = {}
 
@@ -510,6 +525,11 @@ def delete_short_vent_events(vent_status_arr, short_event_hours):
     1) Short events shorted or equal to the threshold are indeed deleted
     2) Events longer than the threshold are not deleted.
     3) Non-events are never modified.
+
+    EXAMPLE:
+    vent_status_arr: [0,0,0,0,1,1,1,1,0,0]
+    short_event_hours: 2
+    output: [0,0,0,0,0,0,0,0,0,0]
     """
     in_event = False
     event_length = 0
@@ -567,6 +587,12 @@ def correct_left_edge_vent(vent_status_arr, etco2_meas_cnt, etco2_col):
     1) The right edge of ventilation events is never modified
     2) The left edge is correctly modified if the condition on EtCo2 takes place
     3) The left edge is not changed if the condition on EtCO2 is not satisfied.
+
+    EXAMPLE:
+    vent_status_arr: [0,0,0,1,1,1,1,1,0,0,...]
+    etco2_meas_cnt: [0,0,0,0,1,2,3,...]
+    etco2_col: [0,0,0,0,0.6,0.55,0.61, ...]
+    output: [0,0,0,0,1,1,1,1,0,0,...]
     """
     on_left_edge = False
     in_event = False
@@ -610,7 +636,12 @@ def delete_small_continuous_blocks(event_arr, block_threshold=None):
     4) A block is never modified if its neighbouring block are not both longer than it.
     5) A block is never modified if one of its neighbouring blocks is not longer than the block length threshold.
 
+    EXAMPLE:
+    event_arr: [1,1,1,1,1,1,2,2,1,1,1,1,1,...]
+    block_threshold: e.g. 3
+    output: [1,1,1,1,1,1,1,1,1,1,1,...] 
     """
+    
     block_list = []
     active_block = None
 
@@ -732,6 +763,13 @@ def gen_circ_failure_ep(event_status_arr=None, map_col=None, lactate_col=None, m
     5) The indicator is 1 if the MAP and lactate condition are satisfied
     6) The lactate condition is satisfied but not long enough in a sub-array
     7) The MAP condition is satisfied but not long enough in a sub-array.
+
+    EXAMPLE:
+    event_status_arr: Initially empty, at the end
+    map_col: [82,85,110, 90, 75, 65, 64, 55, ...]
+    lactate_col: [3.0,2.5,2.4,2.3, 2.9,2.5,2,3,2.4,...]
+    {milri,dobut,levosi,theo,noreph,epineph,vaso}_col: [0,...,0]
+    output: [0,0,0,0,0,0,1,1,...]
     """
 
     circ_status_arr = np.zeros_like(map_col)
@@ -906,6 +944,11 @@ def delete_low_density_hr_gap(vent_status_arr, hr_status_arr, configs=None):
     2) A gap is not closed if the HR density is sufficient inside
     3) A gap is closed if the HR density is not sufficient inside.
     4) Elements of the input array which are not gaps are never modified.
+
+    EXAMPLE:
+    vent_status_arr: [1,1,1,0,0,0,0,1,1,1,1,...]
+    hr_status_arr: [1,1,1,0,0,0,0,1,1,1,1,...]
+    output: [1,1,1,1,1,1,1,1,1,1,1,1,...]
     """
     in_event = False
     in_gap = False
@@ -950,6 +993,9 @@ def load_relevant_columns(df_pid, var_map):
     1) The output dictionary contains all required columns
     2) The returned columns have the correct types
     3) The columns in the dict are equal to the columns in the data-frame, not modified.
+
+    EXAMPLE:
+    Correct patient data-frame with correct types.
     """
     pat_cols = {}
 
@@ -1008,6 +1054,10 @@ def initialize_status_cols(fio2_col=None):
     3) Event status array is filled with UNKNOWN
     4) Various indicator arrays consists of only zeros.
     5) Readiness ext. array consists of only NANs
+
+    EXAMPLE:
+    Dict with pre-filled columns, zero for most, except
+    NAN for readness extubation array initialization.
     """
 
     stat_arr = {}
@@ -1061,6 +1111,13 @@ def suppox_to_fio2(suppox_val):
     TESTS:
     1) Larger values than max. oxygen are clipped correctly
     2) All other values are returned as in the lookup table
+
+    EXAMPLES:
+    suppox_val: 16
+    output: 75
+
+    suppox_val: 3
+    output: 39
     """
 
     if suppox_val > MAX_SUPPOX_KEY:
