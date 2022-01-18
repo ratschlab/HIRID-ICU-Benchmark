@@ -33,6 +33,9 @@ def load_pickle(fpath):
 
     TESTS:
     File is not modified, file is correctly returned.
+
+    EXAMPLE: 
+    Some pickle file.
     """
     with open(fpath, 'rb') as fp:
         return pickle.load(fp)
@@ -53,6 +56,12 @@ def mix_real_est_pao2(pao2_col, pao2_meas_cnt, pao2_est_arr):
     1) Original arrays are not modified
     2) Gaussian kernel is correctly applied.
     3) The correct closest measurement is found in the first inner loop
+
+    EXAMPLE: 
+    pao2_col: [200, 150, 170.1, 200.3, ...]
+    pao2_meas_cnt: [1,4,5,6, ...]
+    pao2_est_arr: [198.3, 160.2, 175.3, 199.5, ...]
+
     """
     final_pao2_arr = np.copy(pao2_est_arr)
     sq_scale = PAO2_MIX_SCALE  # 1 hour has mass 1/3 approximately
@@ -95,6 +104,9 @@ def kernel_smooth_arr(input_arr, bandwidth=None):
     2) If fewer than 2 observations the unsmoothed array is returned as an edge case
     3) Nadaraya Watson estimator is correctly applied
 
+    EXAMPLE: 
+    input_arr: [1.3, 2.5, 3.6, ...]
+    bandwidth: 0.2
     """
     output_arr = np.copy(input_arr)
     fin_arr = output_arr[np.isfinite(output_arr)]
@@ -128,6 +140,9 @@ def percentile_smooth(signal_col, percentile, win_scope_mins):
     1) The correct percentile is used for smoothing
     2) The input array is not modified
     3) The percentile is computed over the correct window
+
+    EXAMPLE: 
+    signal_col: [10, 15.6, 20, 33. 34, ...]
     """
     out_arr = np.zeros_like(signal_col)
     mins_per_window = MINS_PER_STEP
@@ -153,6 +168,11 @@ def merge_short_vent_gaps(vent_status_arr, short_gap_hours):
     2) A gap of shorter length is removed
     3) The input array is not modified
     4) Positions which are not gaps are never modified.
+
+    EXAMPLE:
+    vent_status_arr: [1,1,1,0,0,1,1,1,1,1,0,0,0,0]
+    short_gap_hours: ~30 mins
+    output: [1,1,1,1,1,1,1,1,1,1,0,0,0,0]
 
     """
     in_gap = False
@@ -198,6 +218,16 @@ def assign_resp_levels(event_status_arr=None, pf_event_est_arr=None, vent_status
     3) Offset back windows last positions leave the output array as initialized
     4) Certain positions get the correct 3,2,1,0 label of endpoint status, respectively, need to 
        build synthetic data that satisfies the if condition blocks.
+
+    EXAMPLES:
+    event_status_arr: Initially empty, uninitialized, later e.g. [0,0,0,0,1,1,1,1,2,2,1,1,1,1,0,0,0]
+    pf_event_est_arr: [326, 312,366, 310, 290,280,285,271, 188, 198, 256, 234, 264, 277, 312, 366, 350]
+    vent_status_arr: [0,0,0,0,1,1,1,1,1,1,0]
+    ratio_arr: irrelevant
+    sz_window: e.g. 12 (~1 hour)
+    peep_status_arr: [0,0,0,1,1,1,1,1,0,...]
+    peep_threshold_arr: [0,0,0,0,1,1,0,0,...]
+    offset_back_windows: e.g. 12 (~1 hour)
     """
     for idx in range(0, len(event_status_arr) - offset_back_windows):
         est_idx = pf_event_est_arr[idx:min(len(ratio_arr), idx + sz_window)]
@@ -241,6 +271,12 @@ def correct_right_edge_l0(event_status_arr=None, pf_event_est_arr=None,
        values
     3) The right edge of an event0 block is not modified if the values in 
        pf_event_est_arr do not indicate this.
+
+    EXAMPLE:
+    event_status_arr: [0,0,0,0,1,1,1,...]
+    pf_event_est_arr: [350,343,362,310,306,288,263,...]
+    offset_back_windows: e.g. 12 (~1 hour)
+    output: [0,0,0,0,0,1,1,...]
     """
     on_right_edge = False
     in_event = False
@@ -276,6 +312,12 @@ def correct_right_edge_l1(event_status_arr=None, pf_event_est_arr=None,
     2) The right edge of an event1 block is corrected if required by the pf_event_est_arr values
     3) The right edge of an event1 block is not modified if the values in 
        pf_event_est_arr do not indicate this.
+
+    EXAMPLE:
+    event_status_arr: [1,1,1,1,2,2,2,...]
+    pf_event_est_arr: [263,273,222,188,177, 163,155,...]
+    offset_back_windows: e.g. 12 (~1 hour)
+    output: [1,1,1,2,2,2,2,...]
     """
     on_right_edge = False
     in_event = False
