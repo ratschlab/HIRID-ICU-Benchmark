@@ -1,5 +1,10 @@
 
 VARID = 'variableid'
+PHARMAID = 'pharmaid'
+INFID = 'infusionid'
+PHARMA_DATETIME = 'givenat'
+PHARMA_STATUS = 'recordstatus'
+PHARMA_VAL = 'givendose'
 PID = 'patientid'
 VALUE = 'value'
 DATETIME = 'datetime'

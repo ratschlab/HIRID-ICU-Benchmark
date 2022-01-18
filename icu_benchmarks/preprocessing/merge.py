@@ -172,12 +172,12 @@ def transform_pharma_table_fn(pharma: pd.DataFrame, pharmaref, lst_pmid):
 
 
 def length_of_stay_filtering(df, admission_time):
-    df = df.drop(df.index[df.datetime < admission_time])
+    # df = df.drop(df.index[df.datetime < admission_time])
 
     rec_adm_time = admission_time
     if df.vm1.notnull().sum() > 0:
         hr_first_meas_time = df.loc[df[df.vm1.notnull()].index[0], DATETIME]
-        esti_adm_time = min(rec_adm_time, hr_first_meas_time)
+        esti_adm_time = max(rec_adm_time, hr_first_meas_time)
         esti_disc_time = df.loc[df[df.vm1.notnull()].index[-1], DATETIME]
     else:
         esti_adm_time = rec_adm_time
