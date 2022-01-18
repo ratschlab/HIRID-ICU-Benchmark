@@ -682,6 +682,14 @@ def gen_circ_failure_ep(event_status_arr=None, map_col=None, lactate_col=None, m
 
     RETURNS: Binary indicator array if the patient was in circulatory failure (=1) or not (=0)
 
+    TESTS:
+    1) The original columns are not modified
+    2) The output array is binary and does not contain any NANs
+    3) The indicator is 0 if the lactate condition is not satisfied
+    4) The indicator is 0 if the MAP condition is not satisfied
+    5) The indicator is 1 if the MAP and lactate condition are satisfied
+    6) The lactate condition is satisfied but not long enough in a sub-array
+    7) The MAP condition is satisfied but not long enough in a sub-array.
     """
 
     circ_status_arr = np.zeros_like(map_col)
@@ -851,6 +859,11 @@ def delete_low_density_hr_gap(vent_status_arr, hr_status_arr, configs=None):
 
     RETURNS: Corrected ventilation status array
 
+    TESTS: 
+    1) The HR status array is not modified by the function
+    2) A gap is not closed if the HR density is sufficient inside
+    3) A gap is closed if the HR density is not sufficient inside.
+    4) Elements of the input array which are not gaps are never modified.
     """
     in_event = False
     in_gap = False
@@ -891,6 +904,10 @@ def load_relevant_columns(df_pid, var_map):
 
     RETURNS: Dictionary with relevant channel columns
 
+    TESTS:
+    1) The output dictionary contains all required columns
+    2) The returned columns have the correct types
+    3) The columns in the dict are equal to the columns in the data-frame, not modified.
     """
     pat_cols = {}
 
@@ -942,6 +959,13 @@ def initialize_status_cols(fio2_col=None):
     fio2_col: Used for length computation
 
     RETURNS: Dictionary with initialize status column arrays
+
+    TESTS:
+    1) The output dictionary contains the required columns
+    2) The returned columns have the correct types
+    3) Event status array is filled with UNKNOWN
+    4) Various indicator arrays consists of only zeros.
+    5) Readiness ext. array consists of only NANs
     """
 
     stat_arr = {}
@@ -991,6 +1015,10 @@ def suppox_to_fio2(suppox_val):
     suppox_val: Supplementary oxygen values
 
     RETURNS: Estimated FiO2 values at time-points
+
+    TESTS:
+    1) Larger values than max. oxygen are clipped correctly
+    2) All other values are returned as in the lookup table
     """
 
     if suppox_val > MAX_SUPPOX_KEY:
