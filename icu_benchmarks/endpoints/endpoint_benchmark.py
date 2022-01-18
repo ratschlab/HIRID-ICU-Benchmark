@@ -191,6 +191,13 @@ def assign_resp_levels(event_status_arr=None, pf_event_est_arr=None, vent_status
     offset_back_windows: Do not compute respiratory level for incomplete windows at the end of stay
 
     RETURNS: Filled event status array
+
+    TESTS:
+    1) Event status array has the correct set of outputs (either 0,1,2,3 in string)
+    2) Input arrays are not modified
+    3) Offset back windows last positions leave the output array as initialized
+    4) Certain positions get the correct 3,2,1,0 label of endpoint status, respectively, need to 
+       build synthetic data that satisfies the if condition blocks.
     """
     for idx in range(0, len(event_status_arr) - offset_back_windows):
         est_idx = pf_event_est_arr[idx:min(len(ratio_arr), idx + sz_window)]
@@ -227,6 +234,13 @@ def correct_right_edge_l0(event_status_arr=None, pf_event_est_arr=None,
     offset_back_windows: Do not process edge windows at the end of the stay
 
     RETURNS: Event status array with right edge of L0 zones corrected
+
+    TESTS:
+    1) Event blocks are never modified if they are not adjacent to a level 0 block.
+    2) The right edge of an event0 block is corrected if required by the pf_event_est_arr
+       values
+    3) The right edge of an event0 block is not modified if the values in 
+       pf_event_est_arr do not indicate this.
     """
     on_right_edge = False
     in_event = False
@@ -256,6 +270,12 @@ def correct_right_edge_l1(event_status_arr=None, pf_event_est_arr=None,
     offset_back_windows: Do not process edge windows at the end of the stay
 
     RETURNS: Event status array with right edge of L1 zones corrected
+
+    TESTS:
+    1) Event blocks are never modified if they are not adjacent to a level 1 block.
+    2) The right edge of an event1 block is corrected if required by the pf_event_est_arr values
+    3) The right edge of an event1 block is not modifie if the values in 
+       pf_event_est_arr do not indicate this.
     """
     on_right_edge = False
     in_event = False
