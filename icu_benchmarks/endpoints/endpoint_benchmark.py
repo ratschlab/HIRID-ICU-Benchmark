@@ -30,6 +30,9 @@ def load_pickle(fpath):
     fpath: Pickle file to be loaded
 
     RETURNS: Content of pickle file
+
+    TESTS:
+    File is not modified, file is correctly returned.
     """
     with open(fpath, 'rb') as fp:
         return pickle.load(fp)
@@ -45,6 +48,11 @@ def mix_real_est_pao2(pao2_col, pao2_meas_cnt, pao2_est_arr):
     pao2_est_arr: PaO2 estimates at each point computed by another function
 
     RETURNS: A 1D time series of the final mixed PaO2 estimate
+
+    TESTS:
+    1) Original arrays are not modified
+    2) Gaussian kernel is correctly applied.
+    3) The correct closest measurement is found in the first inner loop
     """
     final_pao2_arr = np.copy(pao2_est_arr)
     sq_scale = PAO2_MIX_SCALE  # 1 hour has mass 1/3 approximately
@@ -82,6 +90,11 @@ def kernel_smooth_arr(input_arr, bandwidth=None):
 
     RETURNS: Input array smoothed with kernel
 
+    TESTS:
+    1) Input array is not modified
+    2) If fewer than 2 observations the unsmoothed array is returned as an edge case
+    3) Nadaraya Watson estimator is correctly applied
+
     """
     output_arr = np.copy(input_arr)
     fin_arr = output_arr[np.isfinite(output_arr)]
@@ -110,6 +123,11 @@ def percentile_smooth(signal_col, percentile, win_scope_mins):
     win_scope_mins: Length of smoothing windows in minutes
 
     RETURNS: Smoothed input array
+
+    TESTS:
+    1) The correct percentile is used for smoothing
+    2) The input array is not modified
+    3) The percentile is computed over the correct window
     """
     out_arr = np.zeros_like(signal_col)
     mins_per_window = MINS_PER_STEP
@@ -130,6 +148,11 @@ def merge_short_vent_gaps(vent_status_arr, short_gap_hours):
     short_gap_hours: All gaps which are less than or equal to this threshold will be merged
 
     RETURNS: Ventilator status array with gaps removed
+
+    1) Gaps of larger length than short_gap_hours are not removed
+    2) A gap of shorter length is removed
+    3) The input array is not modified
+    4) Positions which are not gaps are never modified.
 
     """
     in_gap = False
