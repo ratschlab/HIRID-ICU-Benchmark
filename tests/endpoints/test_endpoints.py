@@ -10,87 +10,77 @@ TEST_ROOT = Path(__file__).parent.parent
 
 PREPROCESSING_RES = TEST_ROOT.parent / 'preprocessing' / 'resources'
 
-
 MINS_PER_STEP = 60 // STEPS_PER_HOUR
 
 
-
 def test_merge_short_vent_gaps():
-    vent_status_arr = np.array([1,1,1,0,0,1,1,1,1,1,0,0,0,0])
+    vent_status_arr = np.array([1, 1, 1, 0, 0, 1, 1, 1, 1, 1, 0, 0, 0, 0])
     short_gap_hours = 30
 
     status = endpoint_benchmark.merge_short_vent_gaps(vent_status_arr, short_gap_hours)
 
-    assert np.all(status == np.array([1,1,1,1,1,1,1,1,1,1,0,0,0,0]))
-
+    assert np.all(status == np.array([1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0]))
 
 
 def test_mix_real_est_pao2():
-    
     pao2_col_1 = np.array([200, 150, 170.1, 200.3])
-    pao2_meas_cnt_1 = np.array([1,4,5,6])
+    pao2_meas_cnt_1 = np.array([1, 4, 5, 6])
     pao2_est_arr_1 = np.array([198.3, 160.2, 175.3, 199.5])
     correct_formula = np.array([150.37022660280886, 150.07818449997205, 170.13985876469164, 200.29386788235516])
-    
+
     pao2_col_2 = np.array([198.3, 198.3, 198.3, 198.3])
-    pao2_meas_cnt_2 = np.array([1,2,3,4])
+    pao2_meas_cnt_2 = np.array([1, 2, 3, 4])
     pao2_est_arr_2 = np.array([198.3, 198.3, 198.3, 198.3])
-    
+
     # formula is correct
     status_1 = endpoint_benchmark.mix_real_est_pao2(pao2_col_1, pao2_meas_cnt_1, pao2_est_arr_1)
     assert np.all(status_1 == correct_formula)
-    
+
     # array doesn't change
     status_2 = endpoint_benchmark.mix_real_est_pao2(pao2_col_2, pao2_meas_cnt_2, pao2_est_arr_2)
     assert np.all(status_2 == pao2_est_arr_2)
 
 
 def test_delete_small_continuous_blocks():
-
-    #zero length block
-    event_arr_0 = np.array([1,1,1,1,1,1,2,2,2,1,1,1,1,1])
+    # zero length block
+    event_arr_0 = np.array([1, 1, 1, 1, 1, 1, 2, 2, 2, 1, 1, 1, 1, 1])
     block_threshold_zero = 0
     result_0 = endpoint_benchmark.delete_small_continuous_blocks(event_arr_0, block_threshold_zero)[0]
     assert np.all(event_arr_0 == result_0)
 
-    #very big block
-    event_arr_big = np.array([1,1,1,1,1,1,2,2,2,1,1,1,1,1])
+    # very big block
+    event_arr_big = np.array([1, 1, 1, 1, 1, 1, 2, 2, 2, 1, 1, 1, 1, 1])
     block_threshold_big = 1000000000000000
     result_big = endpoint_benchmark.delete_small_continuous_blocks(event_arr_big, block_threshold_big)[0]
     assert np.all(event_arr_big == result_big)
 
-    #a sandwiched block between two events of the same label is correctly changed, if it has smaller or equal length than the threshold
+    # a sandwiched block between two events of the same label is correctly changed,
+    # if it has smaller or equal length than the threshold
 
-    event_arr_1 = np.array([1,1,1,1,1,1,2,2,2,1,1,1,1,1])
+    event_arr_1 = np.array([1, 1, 1, 1, 1, 1, 2, 2, 2, 1, 1, 1, 1, 1])
     block_threshold = 3
     result_1 = endpoint_benchmark.delete_small_continuous_blocks(event_arr_1, block_threshold)[0]
 
     assert np.all(result_1 == np.array([1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1]))
 
-    #A sandwiched block between two events of the same label is not changed, if its lengt is longer than the threshold
+    # A sandwiched block between two events of the same label is not changed, if its lengt is longer than the threshold
 
-    event_arr_2 = np.array([1,1,1,1,1,1,2,2,2,2,1,1,1,1,1])
+    event_arr_2 = np.array([1, 1, 1, 1, 1, 1, 2, 2, 2, 2, 1, 1, 1, 1, 1])
     result_2 = endpoint_benchmark.delete_small_continuous_blocks(event_arr_2, block_threshold)[0]
 
     assert np.all(event_arr_2 == result_2)
 
     # blocks which are adjacent to two blocks of different labels are never modified
-    event_arr_3 = np.array([1,1,1,1,1,1,2,2,2,3,3,3,2,2,2])
+    event_arr_3 = np.array([1, 1, 1, 1, 1, 1, 2, 2, 2, 3, 3, 3, 2, 2, 2])
     result_3 = endpoint_benchmark.delete_small_continuous_blocks(event_arr_3, block_threshold)[0]
     assert np.all(event_arr_3 == result_3)
 
-
-    #a block is never modified if its neighbouring block are not both longer than it
-    event_arr_4 = np.array([1,1,1, 2,2,2, 1,1])
+    # a block is never modified if its neighbouring block are not both longer than it
+    event_arr_4 = np.array([1, 1, 1, 2, 2, 2, 1, 1])
     result_4 = endpoint_benchmark.delete_small_continuous_blocks(event_arr_4, block_threshold)[0]
     assert np.all(event_arr_4 == result_4)
 
-    #a block is never modified if both of its neighbouring blocks is not longer than the block length threshold
-    event_arr_5 = np.array([1,1,1, 2,2,2, 1,1])
+    # a block is never modified if both of its neighbouring blocks is not longer than the block length threshold
+    event_arr_5 = np.array([1, 1, 1, 2, 2, 2, 1, 1])
     result_5 = endpoint_benchmark.delete_small_continuous_blocks(event_arr_5, block_threshold)[0]
     assert np.all(event_arr_5 == result_5)
-
-
-
-
-

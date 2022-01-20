@@ -640,7 +640,7 @@ def delete_small_continuous_blocks(event_arr, block_threshold=None):
     block_threshold: e.g. 3
     output: [1,1,1,1,1,1,1,1,1,1,1,...] 
     """
-    
+
     block_list = []
     active_block = None
 
@@ -729,7 +729,7 @@ def delete_small_continuous_blocks(event_arr, block_threshold=None):
         out_arr[lidx:ridx + 1] = blabel
 
     # Additionally build an array where the two arrays are different
-    diff_arr = (out_arr != event_arr).astype(np.bool)
+    diff_arr = (out_arr != event_arr).astype(bool)
 
     return (out_arr, diff_arr)
 
