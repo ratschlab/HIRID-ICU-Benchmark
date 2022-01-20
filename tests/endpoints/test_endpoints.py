@@ -15,6 +15,25 @@ MINS_PER_STEP = 60 // STEPS_PER_HOUR
 
 
 
+def test_kernel_smooth_arr():
+    
+    #If fewer than 2 observations the unsmoothed array is returned as an edge case
+    input_arr_1 = np.array([2])
+    bandwidth_1 = 2
+    res_1 = endpoint_benchmark.kernel_smooth_arr(input_arr_1, bandwidth_1)
+    assert np.all(res_1 == input_arr_1)
+
+    #Nadaraya Watson estimator is correctly applied
+
+    input_arr_2 = np.array([1.3, 2.5, 3.6])
+    bandwidth_2 = 2.5
+    correct_formula = np.array([1.44368064, 2.4893493 , 3.46823613])
+    
+    res_2 = endpoint_benchmark.kernel_smooth_arr(input_arr_2, bandwidth_2)
+    assert np.all(res_2 == correct_formula)
+
+
+
 def test_merge_short_vent_gaps():
     vent_status_arr = np.array([1,1,1,0,0,1,1,1,1,1,0,0,0,0])
     short_gap_hours = 30
