@@ -4,8 +4,8 @@ import pandas as pd
 import pytest
 
 from icu_benchmarks.common import lookups
-from icu_benchmarks.common.constants import PID, VARID, VALUE, DATETIME
-from icu_benchmarks.preprocessing import merge
+from icu_benchmarks.common.constants import PID, VARID, VALUE, DATETIME, PHARMA_DATETIME, INFID, PHARMAID, PHARMA_STATUS, PHARMA_VAL
+from icu_benchmarks.preprocessing import merge, preprocess_pharma
 
 TEST_ROOT = Path(__file__).parent.parent
 
@@ -17,6 +17,107 @@ def varref():
     varref, _ = lookups.read_reference_table(PREPROCESSING_RES / 'varref.tsv')
     return varref
 
+def test_drop_duplicates_pharma():
+
+    # check duplicated stop records, one duplicated record has value 0
+    dt_start = np.datetime64('2010-01-01 11:50:00')
+    dts = dt_start + np.timedelta64(1,'m') * np.arange(0,100,2)
+    dts = np.concatenate((dts, dts[-1:]))
+    status_val = [524]+[520]*(len(dts)-3)+[776,776]
+    pharma_val = np.ones((len(dts),))
+    pharma_val[-1:] = 0
+    df = pd.DataFrame({PHARMA_DATETIME: dts,
+                       INFID: [0]*len(dts),
+                       PHARMAID: [1000379]*len(dts),
+                       PHARMA_VAL: pharma_val,
+                       PHARMA_STATUS: status_val})
+    
+    df_res = preprocess_pharma.drop_duplicates_pharma(df)
+    assert len(df_res) == 50
+    assert df_res[df_res[PHARMA_STATUS]==776][PHARMA_VAL].iloc[0]==1
+
+    # check duplicated stop records
+    dt_start = np.datetime64('2010-01-01 11:50:00')
+    dts = dt_start + np.timedelta64(1,'m') * np.arange(0,100,2)
+    dts = np.concatenate((dts, dts[-1:]))
+    status_val = [524]+[520]*(len(dts)-3)+[776,776]
+    pharma_val = np.ones((len(dts),))
+    df = pd.DataFrame({PHARMA_DATETIME: dts,
+                       INFID: [0]*len(dts),
+                       PHARMAID: [1000379]*len(dts),
+                       PHARMA_VAL: pharma_val,
+                       PHARMA_STATUS: status_val})
+    
+    df_res = preprocess_pharma.drop_duplicates_pharma(df)
+    assert len(df_res) == 50
+    assert df_res[df_res[PHARMA_STATUS]==776][PHARMA_VAL].iloc[0]==1
+
+    # check duplicated records with different status, one status is 776
+    dt_start = np.datetime64('2010-01-01 11:50:00')
+    dts = dt_start + np.timedelta64(1,'m') * np.arange(0,100,2)
+    dts = np.concatenate((dts, dts[-1:]))
+    status_val = [524]+[520]*(len(dts)-3)+[520,776]
+    pharma_val = np.ones((len(dts),))
+    df = pd.DataFrame({PHARMA_DATETIME: dts,
+                       INFID: [0]*len(dts),
+                       PHARMAID: [1000379]*len(dts),
+                       PHARMA_VAL: pharma_val,
+                       PHARMA_STATUS: status_val})
+    
+    df_res = preprocess_pharma.drop_duplicates_pharma(df)
+    assert len(df_res) == 50
+    assert (df_res[PHARMA_STATUS]==776).sum() == 1
+
+    # check duplicated records with different status, one status is 776
+    dt_start = np.datetime64('2010-01-01 11:50:00')
+    dts = dt_start + np.timedelta64(1,'m') * np.arange(0,4,2)
+    dts = np.concatenate((dts, dts[-1:]))
+    status_val = [780] * len(dts)
+    pharma_val = np.ones((len(dts),))
+    df = pd.DataFrame({PHARMA_DATETIME: dts,
+                       INFID: [0]*len(dts),
+                       PHARMAID: [1000379]*len(dts),
+                       PHARMA_VAL: pharma_val,
+                       PHARMA_STATUS: status_val})
+    
+    df_res = preprocess_pharma.drop_duplicates_pharma(df)
+    assert len(df_res) == 3
+    assert df_res[INFID].unique().size == 3
+    
+
+def test_length_of_stay_filtering():
+    admtime = pd.Timestamp('2010-01-01 12:00:00')
+    dt = pd.date_range('2010-01-01 11:50:00', periods=20, freq='2T')
+    temp_val = np.ones((len(dt), )) * 37
+
+    # heart rate measurement before  admission
+    hr_val = np.ones((len(dt), )) * 70
+    df = pd.DataFrame({DATETIME: dt,
+                       "vm1": hr_val,
+                       "vm2": temp_val})
+    df_res = merge.length_of_stay_filtering(df, admtime)
+    assert len(df_res)==15
+
+    # heart rate measurement after admission and only last 8 steps
+    hr_val = np.ones((len(dt), )) * 70
+    hr_val[:10] = np.nan
+    hr_val[-2:] = np.nan
+    df = pd.DataFrame({DATETIME: dt,
+                       "vm1": hr_val,
+                       "vm2": temp_val})
+    df_res = merge.length_of_stay_filtering(df, admtime)
+    assert len(df_res)==8
+
+    # no heart rate measurements
+    hr_val[:] = np.nan
+    df = pd.DataFrame({DATETIME: dt,
+                       "vm1": hr_val,
+                       "vm2": temp_val})
+    df_res = merge.length_of_stay_filtering(df, admtime)
+    assert len(df_res)==15
+
+    
+    
 def test_aggregate_cols(varref):
         
     temp_mid = 2
