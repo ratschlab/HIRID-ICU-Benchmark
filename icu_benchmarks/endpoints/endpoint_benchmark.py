@@ -15,9 +15,8 @@ import skfda.preprocessing.smoothing.kernel_smoothers as skks
 import skfda.representation.grid as skgrid
 from icu_benchmarks.common.constants import STEPS_PER_HOUR, LEVEL1_RATIO_RESP, LEVEL2_RATIO_RESP, LEVEL3_RATIO_RESP, \
     FRACTION_TSH_CIRC, FRACTION_TSH_RESP, DATETIME, PID, REL_DATETIME, SPO2_NORMAL_VALUE, VENT_ETCO2_TSH, \
-    NIV_VENT_MODE, SUPPOX_TO_FIO2
+    NIV_VENT_MODE, SUPPOX_TO_FIO2, PAO2_MIX_SCALE
 
-PAO2_MIX_SCALE = 57 ** 2
 MINS_PER_STEP = 60 // STEPS_PER_HOUR
 MAX_SUPPOX_KEY = np.array(list(SUPPOX_TO_FIO2.keys())).max()
 MAX_SUPPOX_TO_FIO2_VAL = SUPPOX_TO_FIO2[MAX_SUPPOX_KEY]
