@@ -13,8 +13,11 @@ PREPROCESSING_RES = TEST_ROOT.parent / 'preprocessing' / 'resources'
 MINS_PER_STEP = 60 // STEPS_PER_HOUR
 
 
+
+
 def test_kernel_smooth_arr():
-    
+    #TO DO: Input array is not modified
+
     #If fewer than 2 observations the unsmoothed array is returned as an edge case
     input_arr_1 = np.array([2])
     bandwidth_1 = 2
@@ -30,13 +33,31 @@ def test_kernel_smooth_arr():
     res_2 = endpoint_benchmark.kernel_smooth_arr(input_arr_2, bandwidth_2)
     assert np.all(res_2 == correct_formula)
 
+
 def test_merge_short_vent_gaps():
-    vent_status_arr = np.array([1, 1, 1, 0, 0, 1, 1, 1, 1, 1, 0, 0, 0, 0])
-    short_gap_hours = 30
+    #TO DO: Positions which are not gaps are never modified - smth wrong with this
 
-    status = endpoint_benchmark.merge_short_vent_gaps(vent_status_arr, short_gap_hours)
+    #gaps of larger length than short_gap_hours are not removed
 
-    assert np.all(status == np.array([1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0]))
+    vent_status_arr_1 = np.array([1, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 0, 0, 0, 0])
+    short_gap_hours = 1
+
+    status_1 = endpoint_benchmark.merge_short_vent_gaps(vent_status_arr_1, short_gap_hours)
+
+    assert np.all(status_1 == vent_status_arr_1)
+
+    #a gap of shorter length is removed
+    vent_status_arr_2 = np.array([1, 1, 1, 0, 0, 1, 1, 1, 1, 1, 0, 0, 0, 0])
+    correct_status = np.array([1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0])
+    
+    status_2 = endpoint_benchmark.merge_short_vent_gaps(vent_status_arr_2, short_gap_hours)
+
+    assert np.all(status_2 == correct_status)
+
+    #The input array is not modified
+    vent_status_arr_3 = np.array([1,1,1,0,0,1,1,1,1,1,0,0,0,0])
+    status_3 = endpoint_benchmark.merge_short_vent_gaps(vent_status_arr_3, short_gap_hours)
+    assert np.all(status_3 == vent_status_arr_3)
 
 
 def test_mix_real_est_pao2():
