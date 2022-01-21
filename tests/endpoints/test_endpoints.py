@@ -3,7 +3,8 @@ from pathlib import Path
 import pytest
 import numpy as np
 
-from icu_benchmarks.common.constants import STEPS_PER_HOUR, PAO2_MIX_SCALE, LEVEL1_RATIO_RESP, LEVEL2_RATIO_RESP, LEVEL3_RATIO_RESP, VENT_ETCO2_TSH
+from icu_benchmarks.common.constants import STEPS_PER_HOUR, PAO2_MIX_SCALE, LEVEL1_RATIO_RESP, \
+     LEVEL2_RATIO_RESP, LEVEL3_RATIO_RESP, VENT_ETCO2_TSH
 from icu_benchmarks.endpoints import endpoint_benchmark
 
 TEST_ROOT = Path(__file__).parent.parent
