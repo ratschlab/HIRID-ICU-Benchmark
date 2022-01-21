@@ -3,7 +3,7 @@ from pathlib import Path
 import pytest
 import numpy as np
 
-from icu_benchmarks.common.constants import STEPS_PER_HOUR, PAO2_MIX_SCALE
+from icu_benchmarks.common.constants import STEPS_PER_HOUR, PAO2_MIX_SCALE, LEVEL1_RATIO_RESP, LEVEL2_RATIO_RESP, LEVEL3_RATIO_RESP
 from icu_benchmarks.endpoints import endpoint_benchmark
 
 TEST_ROOT = Path(__file__).parent.parent
@@ -125,6 +125,28 @@ def test_correct_right_edge_l0():
     pf_event_est_arr_3 = np.array([250, 243, 262, 210, 206, 288, 263])
     status_3 = endpoint_benchmark.correct_right_edge_l0(event_status_arr_3, pf_event_est_arr_3, offset_back_windows_)
     assert np.all(status_3 == event_status_arr_3)
+
+
+def test_correct_right_edge_l1():
+
+    #Event blocks are never modified if they are not adjacent to a level 0 block.
+    #TO DO: verify
+
+    offset_back_windows_ = 1
+
+    #The right edge of an event1 block is corrected if required by the pf_event_est_arr values
+    event_status_arr_2 = [b"event_1", b"event_1", b"event_1", b"event_1", b"event_2", b"event_2", b"event_2"]
+    pf_event_est_arr_2 = np.array([350,343,362,310, 299,288,263])
+    correction = [b'event_1', b'event_1', b'event_1', b'event_1', 'event_1', 'event_1', b'event_2']
+
+    status_1 = endpoint_benchmark.correct_right_edge_l1(event_status_arr_2, pf_event_est_arr_2, offset_back_windows_)
+    assert np.all(status_1 == correction)
+
+    #The right edge of an event1 block is not modified if the values in pf_event_est_arr do not indicate this
+    event_status_arr_3 = [b"event_1", b"event_1", b"event_1", b"event_1", b"event_2", b"event_2", b"event_2"]
+    pf_event_est_arr_3 = np.array([263, 273, 222, 188, 177, 163, 155])
+    status_3 = endpoint_benchmark.correct_right_edge_l1(event_status_arr_3, pf_event_est_arr_3, offset_back_windows_)
+    assert np.all(status_3 == event_status_arr_3)    
 
 
 def test_delete_small_continuous_blocks():
