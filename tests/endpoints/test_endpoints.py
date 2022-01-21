@@ -13,10 +13,7 @@ PREPROCESSING_RES = TEST_ROOT.parent / 'preprocessing' / 'resources'
 MINS_PER_STEP = 60 // STEPS_PER_HOUR
 
 
-
-
 def test_kernel_smooth_arr():
-    #TO DO: Input array is not modified
 
     #If fewer than 2 observations the unsmoothed array is returned as an edge case
     input_arr_1 = np.array([2])
@@ -85,8 +82,6 @@ def test_delete_short_vent_events():
     assert np.all(res_3 == vent_status_arr_3)
 
 def test_mix_real_est_pao2():
-
-    #TO DO: The correct closest measurement is found in the first inner loop
 
     pao2_col_1 = np.array([200, 150, 170.1, 200.3])
     pao2_meas_cnt_1 = np.array([1, 4, 5, 6])
@@ -180,8 +175,28 @@ def test_correct_right_edge_l3():
     event_status_arr_2 = [b"event_3", b"event_3", b"event_3", b"event_2", b"event_2", b"event_2", b"event_1", b"event_1"]
     pf_event_est_arr_2 = np.array([89, 99, 95, 192, 110, 160, 210, 220])
     status_2 = endpoint_benchmark.correct_right_edge_l3(event_status_arr_2, pf_event_est_arr_2, offset_back_windows_)
-    assert np.all(status_2 == event_status_arr_2)    
+    assert np.all(status_2 == event_status_arr_2)
 
+
+def test_correct_left_edge_vent():
+    #the right edge of ventilation events is never modified
+
+    #the left edge is correctly modified if the condition on EtCo2 takes place
+    vent_status_arr_2 = np.array([0, 0, 0, 1, 1, 1, 1, 1, 0, 0])
+    etco2_meas_cnt_2 = np.array([0, 0, 0, 0, 1, 2, 3])
+    etco2_col_2 = np.array([0, 0, 0, 0, 0.6, 0.55, 0.61])
+    correction = np.array([0, 0, 0, 0, 1, 1, 1, 1, 0, 0])
+
+    res_2 = endpoint_benchmark.correct_left_edge_vent(vent_status_arr_2, etco2_meas_cnt_2, etco2_col_2)
+    assert np.all(res_2 == correction)
+
+    #the left edge is not changed if the condition on EtCO2 is not satisfied
+    vent_status_arr_3 = np.array([0, 0, 0, 1, 1, 1, 1, 1, 0, 0])
+    etco2_meas_cnt_3 = np.array([0, 0, 0, 1, 2, 3, 4])
+    etco2_col_3 = np.array([0, 0, 0, 0.6, 0.55, 0.61, 0.4])
+
+    res_3 = endpoint_benchmark.correct_left_edge_vent(vent_status_arr_3, etco2_meas_cnt_3, etco2_col_3)
+    assert np.all(res_3 == vent_status_arr_3)
 
 def test_delete_small_continuous_blocks():
     # zero length block
