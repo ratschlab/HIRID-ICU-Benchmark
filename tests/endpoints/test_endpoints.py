@@ -36,7 +36,7 @@ def test_kernel_smooth_arr():
 
 def test_merge_short_vent_gaps():
     #TO DO: Positions which are not gaps are never modified - smth wrong with this
-    #verify 1 or 12?
+    
     #gaps of larger length than short_gap_hours are not removed
 
     vent_status_arr_1 = np.array([1, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 0, 0, 0, 0])
@@ -102,6 +102,29 @@ def test_mix_real_est_pao2():
     # array doesn't change
     status_2 = endpoint_benchmark.mix_real_est_pao2(pao2_col_2, pao2_meas_cnt_2, pao2_est_arr_2)
     assert np.all(status_2 == pao2_est_arr_2)
+
+
+
+def test_correct_right_edge_l0():
+
+    #Event blocks are never modified if they are not adjacent to a level 0 block.
+    #TO DO: verify
+
+    offset_back_windows_ = 1
+
+    #The right edge of an event0 block is corrected if required by the pf_event_est_arr values
+    event_status_arr_2 = [b"event_0", b"event_0", b"event_0", b"event_0", b"event_1", b"event_1", b"event_1"]
+    pf_event_est_arr_2 = np.array([350,343,362,310,306,288,263])
+    correction = [b'event_0', b'event_0', b'event_0', b'event_0', 'event_0', b'event_1', b'event_1']
+
+    status_1 = endpoint_benchmark.correct_right_edge_l0(event_status_arr_2, pf_event_est_arr_2, offset_back_windows_)
+    assert np.all(status_1 == correction)
+
+    #the right edge of an event0 block is not modified if the values in pf_event_est_arr do not indicate this
+    event_status_arr_3 = [b"event_0", b"event_0", b"event_0", b"event_0", b"event_1", b"event_1", b"event_1"]
+    pf_event_est_arr_3 = np.array([250,243,262,210,206,288,263])
+    status_3 = endpoint_benchmark.correct_right_edge_l0(event_status_arr_3, pf_event_est_arr_3, offset_back_windows_)
+    assert np.all(status_3 == event_status_arr_3)
 
 
 def test_delete_small_continuous_blocks():
