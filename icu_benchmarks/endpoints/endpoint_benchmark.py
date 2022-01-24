@@ -196,7 +196,7 @@ def merge_short_vent_gaps(vent_status_arr, short_gap_hours):
 
 # UT : VERY HIGH
 def assign_resp_levels(event_status_arr=None, pf_event_est_arr=None, vent_status_arr=None,
-                       ratio_arr=None, sz_window=None, peep_status_arr=None, peep_threshold_arr=None,
+                       sz_window=None, peep_status_arr=None, peep_threshold_arr=None,
                        offset_back_windows=None):
     """Now label based on the array of estimated Horowitz indices
 
@@ -204,7 +204,6 @@ def assign_resp_levels(event_status_arr=None, pf_event_est_arr=None, vent_status
     event_status_arr: The array to be filled with the ventilation status (OUTPUT)
     pf_event_est_arr: Array of estimated P/F ratios at each time step
     vent_status_arr: Array of estimated ventilation status at each time-step
-    ratio_arr: Passed for length compute
     sz_window: Size of forward windows specified as multiple of time series gridding size
     peep_status_arr: Status array of available PEEP measurement at a time-point
     peep_threshold_arr: Binary array indicating if PEEP threshold was reached at a time-point
@@ -223,34 +222,35 @@ def assign_resp_levels(event_status_arr=None, pf_event_est_arr=None, vent_status
     event_status_arr: Initially empty, uninitialized, later e.g. [0,0,0,0,1,1,1,1,2,2,1,1,1,1,0,0,0]
     pf_event_est_arr: [326, 312,366, 310, 290,280,285,271, 188, 198, 256, 234, 264, 277, 312, 366, 350]
     vent_status_arr: [0,0,0,0,1,1,1,1,1,1,0]
-    ratio_arr: irrelevant
     sz_window: e.g. 12 (~1 hour)
     peep_status_arr: [0,0,0,1,1,1,1,1,0,...]
     peep_threshold_arr: [0,0,0,0,1,1,0,0,...]
     offset_back_windows: e.g. 12 (~1 hour)
     """
+    n_steps = len(pf_event_est_arr)
+    new_event_status_arr = np.copy(event_status_arr)
     for idx in range(0, len(event_status_arr) - offset_back_windows):
-        est_idx = pf_event_est_arr[idx:min(len(ratio_arr), idx + sz_window)]
-        est_vent = vent_status_arr[idx:min(len(ratio_arr), idx + sz_window)]
-        est_peep_dense = peep_status_arr[idx:min(len(ratio_arr), idx + sz_window)]
-        est_peep_threshold = peep_threshold_arr[idx:min(len(ratio_arr), idx + sz_window)]
+        est_idx = pf_event_est_arr[idx:min(n_steps, idx + sz_window)]
+        est_vent = vent_status_arr[idx:min(n_steps, idx + sz_window)]
+        est_peep_dense = peep_status_arr[idx:min(n_steps, idx + sz_window)]
+        est_peep_threshold = peep_threshold_arr[idx:min(n_steps, idx + sz_window)]
 
         if np.sum((est_idx <= LEVEL3_RATIO_RESP) & (
                 (est_vent == 0.0) | (est_vent == 1.0) & (est_peep_dense == 0.0) | (est_vent == 1.0) & (
                 est_peep_dense == 1.0) & (est_peep_threshold == 1.0))) >= FRACTION_TSH_RESP * len(est_idx):
-            event_status_arr[idx] = "event_3"
+            new_event_status_arr[idx] = "event_3"
         elif np.sum((est_idx <= LEVEL2_RATIO_RESP) & (
                 (est_vent == 0.0) | (est_vent == 1.0) & (est_peep_dense == 0.0) | (est_vent == 1.0) & (
                 est_peep_dense == 1.0) & (est_peep_threshold == 1.0))) >= FRACTION_TSH_RESP * len(est_idx):
-            event_status_arr[idx] = "event_2"
+            new_event_status_arr[idx] = "event_2"
         elif np.sum((est_idx <= LEVEL1_RATIO_RESP) & (
                 (est_vent == 0.0) | (est_vent == 1.0) & (est_peep_dense == 0.0) | (est_vent == 1.0) & (
                 est_peep_dense == 1.0) & (est_peep_threshold == 1.0))) >= FRACTION_TSH_RESP * len(est_idx):
-            event_status_arr[idx] = "event_1"
+            new_event_status_arr[idx] = "event_1"
         elif np.sum(np.isnan(est_idx)) < FRACTION_TSH_RESP * len(est_idx):
-            event_status_arr[idx] = "event_0"
+            new_event_status_arr[idx] = "event_0"
 
-    return event_status_arr
+    return new_event_status_arr
 
 
 # UT : HIGH
@@ -1151,8 +1151,8 @@ def endpoint_gen_benchmark(configs):
     """
 
     var_map = configs["VAR_IDS"]
-    sz_window = configs["length_fw_window"]
-    abga_window = configs["length_ABGA_window"]
+    sz_window = 2 * STEPS_PER_HOUR
+    abga_window = 24 * STEPS_PER_HOUR
 
     imputed_f = configs["imputed_path"]
     merged_f = os.path.join(configs["merged_h5"])
@@ -1397,7 +1397,7 @@ def endpoint_gen_benchmark(configs):
                                               pf_event_est_arr=pf_event_est_arr,
                                               vent_status_arr=vent_status_arr,
                                               peep_status_arr=status_cols["peep_status"],
-                                              ratio_arr=ratio_arr, sz_window=sz_window,
+                                              sz_window=sz_window,
                                               peep_threshold_arr=status_cols["peep_threshold"],
                                               offset_back_windows=configs["offset_back_windows"])
 
