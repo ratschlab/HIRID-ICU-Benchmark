@@ -279,6 +279,7 @@ def merge_short_vent_gaps(vent_status_arr, short_gap_hours):
     """
     in_gap = False
     gap_length = 0
+    new_vent_status_arr=np.copy(vent_status_arr)
 
     for idx in range(len(vent_status_arr)):
         cur_state = vent_status_arr[idx]
@@ -291,9 +292,9 @@ def merge_short_vent_gaps(vent_status_arr, short_gap_hours):
         elif in_gap and cur_state == 1.0:
             in_gap = False
             if gap_length / 60. <= short_gap_hours:
-                vent_status_arr[in_gap_idx:idx] = 1.0
+                new_vent_status_arr[in_gap_idx:idx] = 1.0
 
-    return vent_status_arr
+    return new_vent_status_arr
 
 
 def delete_short_vent_events(vent_status_arr, short_event_hours):

@@ -110,9 +110,14 @@ def test_merge_short_vent_gaps():
         [1, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 0, 0, 0, 0])
     short_gap_hours = 1
 
+    vent_status_arr_1_bef=np.copy(vent_status_arr_1)
+
     status_1 = endpoint_benchmark.merge_short_vent_gaps(vent_status_arr_1, short_gap_hours)
 
     assert np.all(status_1 == vent_status_arr_1)
+
+    # input corruption
+    assert np.all(vent_status_arr_1==vent_status_arr_1_bef)
 
     # a gap of shorter length is removed
     vent_status_arr_2 = np.array([1, 1, 1, 0, 0, 1, 1, 1, 1, 1, 0, 0, 0, 0])
@@ -124,8 +129,10 @@ def test_merge_short_vent_gaps():
 
     # The input array is not modified
     vent_status_arr_3 = np.array([1, 1, 1, 0, 0, 1, 1, 1, 1, 1, 0, 0, 0, 0])
+    vent_status_arr_3_bef=np.copy(vent_status_arr_3)
+    
     status_3 = endpoint_benchmark.merge_short_vent_gaps(vent_status_arr_3, short_gap_hours)
-    assert np.all(status_3 == vent_status_arr_3)
+    assert np.all(vent_status_arr_3==vent_status_arr_3_bef)
 
     # positions which are not gaps are never modified (zeros in the begginning os the array are not considered as gaps)
     vent_status_arr_4 = np.array([1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0])
@@ -192,8 +199,7 @@ def test_mix_real_est_pao2():
 
 def test_correct_right_edge_l0():
     # Event blocks are never modified if they are not adjacent to a level 0 block.
-    # TO DO: verify
-
+    
     offset_back_windows_ = 1
 
     # The right edge of an event0 block is corrected if required by the pf_event_est_arr values
@@ -221,7 +227,6 @@ def test_correct_right_edge_l0():
 
 def test_correct_right_edge_l1():
     # Event blocks are never modified if they are not adjacent to a level 0 block.
-    # TO DO: verify
 
     offset_back_windows_ = 1
 
