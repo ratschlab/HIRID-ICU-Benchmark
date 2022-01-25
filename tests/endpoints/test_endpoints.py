@@ -15,13 +15,17 @@ MINS_PER_STEP = 60 // STEPS_PER_HOUR
 
 
 def test_kernel_smooth_arr():
-    # TO DO: Input array is not modified
 
     # If fewer than 2 observations the unsmoothed array is returned as an edge case
     input_arr_1 = np.array([2])
+    input_arr_1_bef=np.copy(input_arr_1)
+    
     bandwidth_1 = 2
     res_1 = endpoint_benchmark.kernel_smooth_arr(input_arr_1, bandwidth_1)
     assert np.all(res_1 == input_arr_1)
+
+    # Input array not corrupted
+    assert np.all(input_arr_1_bef==input_arr_1)
 
     # Nadaraya Watson estimator is correctly applied
 
@@ -154,9 +158,19 @@ def test_mix_real_est_pao2():
     pao2_meas_cnt_2 = np.array([1, 2, 3, 4])
     pao2_est_arr_2 = np.array([198.3, 198.3, 198.3, 198.3])
 
+    # Save the inputs to check they are not modified by the function
+    pao2_col_1_bef=np.copy(pao2_col_1)
+    pao2_meas_cnt_1_bef=np.copy(pao2_meas_cnt_1)
+    pao2_est_arr_1_bef=np.copy(pao2_est_arr_1)
+
     # formula is correct
     status_1 = endpoint_benchmark.mix_real_est_pao2(pao2_col_1, pao2_meas_cnt_1, pao2_est_arr_1)
     assert np.all(status_1 == correct_formula)
+
+    # Input arrays not corrupted
+    assert np.all(pao2_col_1_bef==pao2_col_1)
+    assert np.all(pao2_meas_cnt_1_bef==pao2_meas_cnt_1)
+    assert np.all(pao2_est_arr_1_bef==pao2_est_arr_1)
 
     # array doesn't change
     status_2 = endpoint_benchmark.mix_real_est_pao2(pao2_col_2, pao2_meas_cnt_2, pao2_est_arr_2)
