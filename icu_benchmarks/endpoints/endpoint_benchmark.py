@@ -23,18 +23,6 @@ MAX_SUPPOX_KEY = np.array(list(SUPPOX_TO_FIO2.keys())).max()
 MAX_SUPPOX_TO_FIO2_VAL = SUPPOX_TO_FIO2[MAX_SUPPOX_KEY]
 
 
-# TODO: Deleted, it is not used.
-def load_pickle(fpath):
-    """ Given a file path pointing to a pickle file, yields the object pickled in this file
-
-    INPUTS:
-    fpath: Pickle file to be loaded
-
-    RETURNS: Content of pickle file
-    """
-    with open(fpath, 'rb') as fp:
-        return pickle.load(fp)
-
 
 def mix_real_est_pao2(pao2_col, pao2_meas_cnt, pao2_est_arr):
     """ Mix real PaO2 measurement and PaO2 estimates using a Gaussian kernel
@@ -317,6 +305,8 @@ def delete_short_vent_events(vent_status_arr, short_event_hours):
 
     RETURNS: Ventilation status array with small events removed
     """
+    new_vent_status_arr=np.copy(vent_status_arr)
+    
     in_event = False
     event_length = 0
     for idx in range(len(vent_status_arr)):
@@ -330,8 +320,8 @@ def delete_short_vent_events(vent_status_arr, short_event_hours):
         if in_event and (cur_state == 0.0 or np.isnan(cur_state)):
             in_event = False
             if event_length / 60. < short_event_hours:
-                vent_status_arr[event_start_idx:idx] = 0.0
-    return vent_status_arr
+                new_vent_status_arr[event_start_idx:idx] = 0.0
+    return new_vent_status_arr
 
 
 def delete_low_density_hr_gap(vent_status_arr, hr_status_arr, configs=None):

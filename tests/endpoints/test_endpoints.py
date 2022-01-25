@@ -138,11 +138,14 @@ def test_delete_short_vent_events():
 
     # Short events shorted than the threshold are indeed deleted
     vent_status_arr_1 = np.array([0, 0, 0, 0, 1, 1, 1, 1, 0, 0])
+    vent_status_arr_1_bef=np.copy(vent_status_arr_1)
+    
     short_event_hours_ = 1
     corrected_events = np.array([0, 0, 0, 0, 0, 0, 0, 0, 0, 0])
 
     res_1 = endpoint_benchmark.delete_short_vent_events(vent_status_arr_1, short_event_hours_)
     assert np.all(res_1 == corrected_events)
+    assert np.all(vent_status_arr_1==vent_status_arr_1_bef)
 
     # Events longer or equal than the threshold are not deleted
     vent_status_arr_2 = np.array([0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0])
