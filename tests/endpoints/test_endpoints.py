@@ -1,7 +1,10 @@
 from pathlib import Path
 
+import copy
+
 import pytest
 import numpy as np
+
 
 from icu_benchmarks.common.constants import STEPS_PER_HOUR, PAO2_MIX_SCALE, LEVEL1_RATIO_RESP, \
     LEVEL2_RATIO_RESP, LEVEL3_RATIO_RESP, VENT_ETCO2_TSH, FRACTION_TSH_RESP
@@ -79,17 +82,24 @@ def test_assign_resp_levels_fixed(pf, vent, peep_status, peep_threshold, event):
 
 
 def test_percentile_smooth():
+    
     # We test a flat signal
     flat_signal = np.ones((100,)).astype(float)
+    flat_signal_bef=np.copy(flat_signal)
+    
     out_flat = endpoint_benchmark.percentile_smooth(flat_signal, 50, 20)
     assert np.all(out_flat == flat_signal)
+    assert np.all(flat_signal_bef==flat_signal)
 
     # We test a constant slope signal
     steps_signal = np.arange(8).repeat(2).astype(float)
+    steps_signal_bef = np.copy(steps_signal)
+    
     out_steps = endpoint_benchmark.percentile_smooth(steps_signal, 50, 20)
     assert np.all(out_steps[:2] == 0.0)
     assert np.all(out_steps[2::2] - np.arange(7) == 0.5)
     assert out_steps[-1] == 7.0
+    assert np.all(steps_signal_bef==steps_signal)
 
 
 def test_merge_short_vent_gaps():
@@ -185,11 +195,19 @@ def test_correct_right_edge_l0():
 
     # The right edge of an event0 block is corrected if required by the pf_event_est_arr values
     event_status_arr_1 = [b"event_0", b"event_0", b"event_0", b"event_0", b"event_1", b"event_1", b"event_1"]
+    event_status_arr_1_bef=copy.copy(event_status_arr_1)
+    
     pf_event_est_arr_1 = np.array([350, 343, 362, 310, 306, 288, 263])
+    pf_event_est_arr_1_bef=copy.copy(pf_event_est_arr_1)
+    
     correction = [b'event_0', b'event_0', b'event_0', b'event_0', b'event_0', b'event_1', b'event_1']
 
     status_1 = endpoint_benchmark.correct_right_edge_l0(event_status_arr_1, pf_event_est_arr_1, offset_back_windows_)
     assert np.all(status_1 == correction)
+
+    # input arrays are not corrupted
+    assert np.all(event_status_arr_1==event_status_arr_1_bef)
+    assert np.all(pf_event_est_arr_1==pf_event_est_arr_1_bef)
 
     # the right edge of an event0 block is not modified if the values in pf_event_est_arr do not indicate this
     event_status_arr_2 = [b"event_0", b"event_0", b"event_0", b"event_0", b"event_1", b"event_1", b"event_1"]
@@ -206,11 +224,19 @@ def test_correct_right_edge_l1():
 
     # The right edge of an event1 block is corrected if required by the pf_event_est_arr values
     event_status_arr_1 = [b"event_1", b"event_1", b"event_1", b"event_1", b"event_2", b"event_2", b"event_2"]
+    event_status_arr_1_bef=copy.copy(event_status_arr_1)
+    
     pf_event_est_arr_1 = np.array([350, 343, 362, 310, 299, 288, 263])
+    pf_event_est_arr_1_bef=copy.copy(pf_event_est_arr_1)
+    
     correction = [b'event_1', b'event_1', b'event_1', b'event_1', b'event_1', b'event_1', b'event_2']
 
     status_1 = endpoint_benchmark.correct_right_edge_l1(event_status_arr_1, pf_event_est_arr_1, offset_back_windows_)
     assert np.all(status_1 == correction)
+
+    # input arrays not corrupted
+    assert np.all(event_status_arr_1==event_status_arr_1_bef)
+    assert np.all(pf_event_est_arr_1==pf_event_est_arr_1_bef)
 
     # The right edge of an event1 block is not modified if the values in pf_event_est_arr do not indicate this
     event_status_arr_3 = [b"event_1", b"event_1", b"event_1", b"event_1", b"event_2", b"event_2", b"event_2"]
@@ -224,11 +250,19 @@ def test_correct_right_edge_l2():
 
     # The right edge of an event1 block is corrected if required by the pf_event_est_arr values
     event_status_arr_1 = [b"event_2", b"event_2", b"event_2", b"event_2", b"event_1", b"event_1", b"event_1"]
+    event_status_arr_1_bef=copy.copy(event_status_arr_1)
+    
     pf_event_est_arr_1 = np.array([188, 169, 155, 210, 190, 230, 225])
+    pf_event_est_arr_1_bef=copy.copy(pf_event_est_arr_1)
+    
     correction = [b'event_2', b'event_2', b'event_2', b'event_2', b'event_2', b'event_1', b'event_1']
 
     status_1 = endpoint_benchmark.correct_right_edge_l2(event_status_arr_1, pf_event_est_arr_1, offset_back_windows_)
     assert np.all(status_1 == correction)
+
+    # input arrays not corrupted
+    assert np.all(event_status_arr_1==event_status_arr_1_bef)
+    assert np.all(pf_event_est_arr_1==pf_event_est_arr_1_bef)
 
     # The right edge of an event1 block is not modified if the values in pf_event_est_arr do not indicate this
     event_status_arr_2 = [b"event_2", b"event_2", b"event_2", b"event_2", b"event_1", b"event_1", b"event_1"]
@@ -243,10 +277,18 @@ def test_correct_right_edge_l3():
     # The right edge of an event1 block is corrected if required by the pf_event_est_arr values
     event_status_arr_1 = [b"event_3", b"event_3", b"event_3", b"event_2", b"event_2", b"event_2", b"event_1",
                           b"event_1"]
+    event_status_arr_1_bef=copy.copy(event_status_arr_1)
+    
     pf_event_est_arr_1 = np.array([89, 99, 95, 92, 110, 160, 210, 220])
+    pf_event_est_arr_1_bef=copy.copy(pf_event_est_arr_1)
+    
     correction = [b'event_3', b'event_3', b'event_3', b'event_3', b'event_2', b'event_2', b'event_1', b'event_1']
     status_1 = endpoint_benchmark.correct_right_edge_l3(event_status_arr_1, pf_event_est_arr_1, offset_back_windows_)
     assert np.all(status_1 == correction)
+
+    # input arrays not corrupted
+    assert np.all(event_status_arr_1==event_status_arr_1_bef)
+    assert np.all(pf_event_est_arr_1==pf_event_est_arr_1_bef)
 
     # The right edge of an event1 block is not modified if the values in pf_event_est_arr do not indicate this
     event_status_arr_2 = [b"event_3", b"event_3", b"event_3", b"event_2", b"event_2", b"event_2", b"event_1",

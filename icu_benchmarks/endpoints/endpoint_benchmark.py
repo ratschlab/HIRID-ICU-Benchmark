@@ -23,6 +23,7 @@ MAX_SUPPOX_KEY = np.array(list(SUPPOX_TO_FIO2.keys())).max()
 MAX_SUPPOX_TO_FIO2_VAL = SUPPOX_TO_FIO2[MAX_SUPPOX_KEY]
 
 
+# TODO: Deleted, it is not used.
 def load_pickle(fpath):
     """ Given a file path pointing to a pickle file, yields the object pickled in this file
 
