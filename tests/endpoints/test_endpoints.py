@@ -34,18 +34,18 @@ def test_kernel_smooth_arr():
 
 
 @pytest.mark.parametrize("pf,vent,peep_status,peep_threshold,event",
-                         ((LEVEL1_RATIO_RESP, 1.0, 1.0, 1.0, "event_1"),
-                          (LEVEL1_RATIO_RESP, 0.0, 1.0, 1.0, "event_1"),
-                          (LEVEL1_RATIO_RESP, 1.0, 0.0, 1.0, "event_1"),
-                          (LEVEL1_RATIO_RESP, 1.0, 1.0, 0.0, "event_0"),
-                          (LEVEL2_RATIO_RESP, 1.0, 1.0, 1.0, "event_2"),
-                          (LEVEL2_RATIO_RESP, 0.0, 1.0, 1.0, "event_2"),
-                          (LEVEL2_RATIO_RESP, 1.0, 0.0, 1.0, "event_2"),
-                          (LEVEL2_RATIO_RESP, 1.0, 1.0, 0.0, "event_0"),
-                          (LEVEL3_RATIO_RESP, 1.0, 1.0, 1.0, "event_3"),
-                          (LEVEL3_RATIO_RESP, 0.0, 1.0, 1.0, "event_3"),
-                          (LEVEL3_RATIO_RESP, 1.0, 0.0, 1.0, "event_3"),
-                          (LEVEL3_RATIO_RESP, 1.0, 1.0, 0.0, "event_0"),
+                         ((LEVEL1_RATIO_RESP, 1.0, 1.0, 1.0, b"event_1"),
+                          (LEVEL1_RATIO_RESP, 0.0, 1.0, 1.0, b"event_1"),
+                          (LEVEL1_RATIO_RESP, 1.0, 0.0, 1.0, b"event_1"),
+                          (LEVEL1_RATIO_RESP, 1.0, 1.0, 0.0, b"event_0"),
+                          (LEVEL2_RATIO_RESP, 1.0, 1.0, 1.0, b"event_2"),
+                          (LEVEL2_RATIO_RESP, 0.0, 1.0, 1.0, b"event_2"),
+                          (LEVEL2_RATIO_RESP, 1.0, 0.0, 1.0, b"event_2"),
+                          (LEVEL2_RATIO_RESP, 1.0, 1.0, 0.0, b"event_0"),
+                          (LEVEL3_RATIO_RESP, 1.0, 1.0, 1.0, b"event_3"),
+                          (LEVEL3_RATIO_RESP, 0.0, 1.0, 1.0, b"event_3"),
+                          (LEVEL3_RATIO_RESP, 1.0, 0.0, 1.0, b"event_3"),
+                          (LEVEL3_RATIO_RESP, 1.0, 1.0, 0.0, b"event_0"),
                           ))
 def test_assign_resp_levels_fixed(pf, vent, peep_status, peep_threshold, event):
     # We test individually each level. Edges are tested in other tests
@@ -53,26 +53,25 @@ def test_assign_resp_levels_fixed(pf, vent, peep_status, peep_threshold, event):
     vent_array = np.ones(64) * vent
     peep_status_array = np.ones(64) * peep_status
     peep_threshold_array = np.ones(64) * peep_threshold
-    event_arr = np.zeros(64).astype(str)
     off_set_window = 4
     event_window = 12
-    out_array = endpoint_benchmark.assign_resp_levels(event_arr, pf_array, vent_array,
+    out_array = endpoint_benchmark.assign_resp_levels(pf_array, vent_array,
                                                       event_window, peep_status_array,
                                                       peep_threshold_array, off_set_window)
-    assert np.all(event_arr == '0.0')
+
     assert np.all(out_array[:-4] == event)
-    assert np.all(out_array[-4:] == '0.0')
+    assert np.all(out_array[-4:] == b'UNKNOWN')
 
     pf_array[:event_window] = np.nan
-    out_array = endpoint_benchmark.assign_resp_levels(event_arr, pf_array, vent_array,
+    out_array = endpoint_benchmark.assign_resp_levels(pf_array, vent_array,
                                                       event_window, peep_status_array,
                                                       peep_threshold_array, off_set_window)
     nan_bound = (int((1 - FRACTION_TSH_RESP) * event_window + 1))
     tsh_bound = int(FRACTION_TSH_RESP * event_window)
 
-    assert np.all(out_array[:nan_bound] == '0.0')
+    assert np.all(out_array[:nan_bound] == b'UNKNOWN')
     if tsh_bound > nan_bound:
-        assert np.all(out_array[nan_bound: tsh_bound] == 'event_0')
+        assert np.all(out_array[nan_bound: tsh_bound] == b'event_0')
 
 
 def test_percentile_smooth():
@@ -173,7 +172,7 @@ def test_correct_right_edge_l0():
     # The right edge of an event0 block is corrected if required by the pf_event_est_arr values
     event_status_arr_1 = [b"event_0", b"event_0", b"event_0", b"event_0", b"event_1", b"event_1", b"event_1"]
     pf_event_est_arr_1 = np.array([350, 343, 362, 310, 306, 288, 263])
-    correction = [b'event_0', b'event_0', b'event_0', b'event_0', 'event_0', b'event_1', b'event_1']
+    correction = [b'event_0', b'event_0', b'event_0', b'event_0', b'event_0', b'event_1', b'event_1']
 
     status_1 = endpoint_benchmark.correct_right_edge_l0(event_status_arr_1, pf_event_est_arr_1, offset_back_windows_)
     assert np.all(status_1 == correction)
@@ -194,7 +193,7 @@ def test_correct_right_edge_l1():
     # The right edge of an event1 block is corrected if required by the pf_event_est_arr values
     event_status_arr_1 = [b"event_1", b"event_1", b"event_1", b"event_1", b"event_2", b"event_2", b"event_2"]
     pf_event_est_arr_1 = np.array([350, 343, 362, 310, 299, 288, 263])
-    correction = [b'event_1', b'event_1', b'event_1', b'event_1', 'event_1', 'event_1', b'event_2']
+    correction = [b'event_1', b'event_1', b'event_1', b'event_1', b'event_1', b'event_1', b'event_2']
 
     status_1 = endpoint_benchmark.correct_right_edge_l1(event_status_arr_1, pf_event_est_arr_1, offset_back_windows_)
     assert np.all(status_1 == correction)
@@ -212,7 +211,7 @@ def test_correct_right_edge_l2():
     # The right edge of an event1 block is corrected if required by the pf_event_est_arr values
     event_status_arr_1 = [b"event_2", b"event_2", b"event_2", b"event_2", b"event_1", b"event_1", b"event_1"]
     pf_event_est_arr_1 = np.array([188, 169, 155, 210, 190, 230, 225])
-    correction = [b'event_2', b'event_2', b'event_2', b'event_2', 'event_2', b'event_1', b'event_1']
+    correction = [b'event_2', b'event_2', b'event_2', b'event_2', b'event_2', b'event_1', b'event_1']
 
     status_1 = endpoint_benchmark.correct_right_edge_l2(event_status_arr_1, pf_event_est_arr_1, offset_back_windows_)
     assert np.all(status_1 == correction)
@@ -231,8 +230,7 @@ def test_correct_right_edge_l3():
     event_status_arr_1 = [b"event_3", b"event_3", b"event_3", b"event_2", b"event_2", b"event_2", b"event_1",
                           b"event_1"]
     pf_event_est_arr_1 = np.array([89, 99, 95, 92, 110, 160, 210, 220])
-    correction = [b'event_3', b'event_3', b'event_3', 'event_3', b'event_2', b'event_2', b'event_1', b'event_1']
-
+    correction = [b'event_3', b'event_3', b'event_3', b'event_3', b'event_2', b'event_2', b'event_1', b'event_1']
     status_1 = endpoint_benchmark.correct_right_edge_l3(event_status_arr_1, pf_event_est_arr_1, offset_back_windows_)
     assert np.all(status_1 == correction)
 
@@ -242,27 +240,6 @@ def test_correct_right_edge_l3():
     pf_event_est_arr_2 = np.array([89, 99, 95, 192, 110, 160, 210, 220])
     status_2 = endpoint_benchmark.correct_right_edge_l3(event_status_arr_2, pf_event_est_arr_2, offset_back_windows_)
     assert np.all(status_2 == event_status_arr_2)
-
-
-def test_correct_left_edge_vent():
-    # the right edge of ventilation events is never modified
-
-    # the left edge is correctly modified if the condition on EtCo2 takes place
-    vent_status_arr_2 = np.array([0, 0, 0, 1, 1, 1, 1, 1, 0, 0])
-    etco2_meas_cnt_2 = np.array([0, 0, 0, 0, 1, 2, 3])
-    etco2_col_2 = np.array([0, 0, 0, 0, 0.6, 0.55, 0.61])
-    correction = np.array([0, 0, 0, 0, 1, 1, 1, 1, 0, 0])
-
-    res_2 = endpoint_benchmark.correct_left_edge_vent(vent_status_arr_2, etco2_meas_cnt_2, etco2_col_2)
-    assert np.all(res_2 == correction)
-
-    # the left edge is not changed if the condition on EtCO2 is not satisfied
-    vent_status_arr_3 = np.array([0, 0, 0, 1, 1, 1, 1, 1, 0, 0])
-    etco2_meas_cnt_3 = np.array([0, 0, 0, 1, 2, 3, 4])
-    etco2_col_3 = np.array([0, 0, 0, 0.6, 0.55, 0.61, 0.4])
-
-    res_3 = endpoint_benchmark.correct_left_edge_vent(vent_status_arr_3, etco2_meas_cnt_3, etco2_col_3)
-    assert np.all(res_3 == vent_status_arr_3)
 
 
 def test_delete_small_continuous_blocks():
