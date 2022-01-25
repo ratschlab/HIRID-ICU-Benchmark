@@ -30,18 +30,11 @@ def load_pickle(fpath):
     fpath: Pickle file to be loaded
 
     RETURNS: Content of pickle file
-
-    TESTS:
-    File is not modified, file is correctly returned.
-
-    EXAMPLE: 
-    Some pickle file.
     """
     with open(fpath, 'rb') as fp:
         return pickle.load(fp)
 
 
-# UT : Mid
 def mix_real_est_pao2(pao2_col, pao2_meas_cnt, pao2_est_arr):
     """ Mix real PaO2 measurement and PaO2 estimates using a Gaussian kernel
      
@@ -51,17 +44,6 @@ def mix_real_est_pao2(pao2_col, pao2_meas_cnt, pao2_est_arr):
     pao2_est_arr: PaO2 estimates at each point computed by another function
 
     RETURNS: A 1D time series of the final mixed PaO2 estimate
-
-    TESTS:
-    1) Original arrays are not modified
-    2) Gaussian kernel is correctly applied.
-    3) The correct closest measurement is found in the first inner loop
-
-    EXAMPLE: 
-    pao2_col: [200, 150, 170.1, 200.3, ...]
-    pao2_meas_cnt: [1,4,5,6, ...]
-    pao2_est_arr: [198.3, 160.2, 175.3, 199.5, ...]
-
     """
     final_pao2_arr = np.copy(pao2_est_arr)
     sq_scale = PAO2_MIX_SCALE  # 1 hour has mass 1/3 approximately
@@ -90,7 +72,6 @@ def mix_real_est_pao2(pao2_col, pao2_meas_cnt, pao2_est_arr):
     return final_pao2_arr
 
 
-# UT : Mid
 def kernel_smooth_arr(input_arr, bandwidth=None):
     """ Kernel smooth an input array with a Nadaraya-Watson kernel smoother
     
@@ -98,15 +79,6 @@ def kernel_smooth_arr(input_arr, bandwidth=None):
     input_arr: Input array to be smoothed
 
     RETURNS: Input array smoothed with kernel
-
-    TESTS:
-    1) Input array is not modified
-    2) If fewer than 2 observations the unsmoothed array is returned as an edge case
-    3) Nadaraya Watson estimator is correctly applied
-
-    EXAMPLE: 
-    input_arr: [1.3, 2.5, 3.6, ...]
-    bandwidth: 0.2
     """
     output_arr = np.copy(input_arr)
     fin_arr = output_arr[np.isfinite(output_arr)]
@@ -125,7 +97,6 @@ def kernel_smooth_arr(input_arr, bandwidth=None):
     return output_arr
 
 
-# UT : Mid
 def percentile_smooth(signal_col, percentile, win_scope_mins):
     """ Window percentile smoother, where percentile is in the interval [0,100]
     
@@ -135,14 +106,6 @@ def percentile_smooth(signal_col, percentile, win_scope_mins):
     win_scope_mins: Length of smoothing windows in minutes
 
     RETURNS: Smoothed input array
-
-    TESTS:
-    1) The correct percentile is used for smoothing
-    2) The input array is not modified
-    3) The percentile is computed over the correct window
-
-    EXAMPLE: 
-    signal_col: [10, 15.6, 20, 33. 34, ...]
     """
     out_arr = np.zeros_like(signal_col)
     mins_per_window = MINS_PER_STEP
@@ -153,7 +116,6 @@ def percentile_smooth(signal_col, percentile, win_scope_mins):
     return out_arr
 
 
-# UT : VERY HIGH
 def assign_resp_levels(pf_event_est_arr=None, vent_status_arr=None,
                        sz_window=None, peep_status_arr=None, peep_threshold_arr=None,
                        offset_back_windows=None):
@@ -169,22 +131,6 @@ def assign_resp_levels(pf_event_est_arr=None, vent_status_arr=None,
     offset_back_windows: Do not compute respiratory level for incomplete windows at the end of stay
 
     RETURNS: Filled event status array
-
-    TESTS:
-    1) Event status array has the correct set of outputs (either 0,1,2,3 in string)
-    2) Input arrays are not modified
-    3) Offset back windows last positions leave the output array as initialized
-    4) Certain positions get the correct 3,2,1,0 label of endpoint status, respectively, need to 
-       build synthetic data that satisfies the if condition blocks.
-
-    EXAMPLES:
-    event_status_arr: Initially empty, uninitialized, later e.g. [0,0,0,0,1,1,1,1,2,2,1,1,1,1,0,0,0]
-    pf_event_est_arr: [326, 312,366, 310, 290,280,285,271, 188, 198, 256, 234, 264, 277, 312, 366, 350]
-    vent_status_arr: [0,0,0,0,1,1,1,1,1,1,0]
-    sz_window: e.g. 12 (~1 hour)
-    peep_status_arr: [0,0,0,1,1,1,1,1,0,...]
-    peep_threshold_arr: [0,0,0,0,1,1,0,0,...]
-    offset_back_windows: e.g. 12 (~1 hour)
     """
     n_steps = len(pf_event_est_arr)
     new_event_status_arr = np.zeros(n_steps, dtype="<S10")
@@ -213,7 +159,6 @@ def assign_resp_levels(pf_event_est_arr=None, vent_status_arr=None,
     return new_event_status_arr
 
 
-# UT : HIGH
 def correct_right_edge_l0(event_status_arr=None, pf_event_est_arr=None,
                           offset_back_windows=None):
     """Correct right edges of event 0 (correct level to level 0)
@@ -224,19 +169,6 @@ def correct_right_edge_l0(event_status_arr=None, pf_event_est_arr=None,
     offset_back_windows: Do not process edge windows at the end of the stay
 
     RETURNS: Event status array with right edge of L0 zones corrected
-
-    TESTS:
-    1) Event blocks are never modified if they are not adjacent to a level 0 block.
-    2) The right edge of an event0 block is corrected if required by the pf_event_est_arr
-       values
-    3) The right edge of an event0 block is not modified if the values in 
-       pf_event_est_arr do not indicate this.
-
-    EXAMPLE:
-    event_status_arr: [0,0,0,0,1,1,1,...]
-    pf_event_est_arr: [350,343,362,310,306,288,263,...]
-    offset_back_windows: e.g. 12 (~1 hour)
-    output: [0,0,0,0,0,1,1,...]
     """
     on_right_edge = False
     in_event = False
@@ -257,28 +189,16 @@ def correct_right_edge_l0(event_status_arr=None, pf_event_est_arr=None,
     return corrected_event_status_arr
 
 
-# UT : HIGH
 def correct_right_edge_l1(event_status_arr=None, pf_event_est_arr=None,
                           offset_back_windows=None):
     """Correct right edges of event 1 (correct to level 1)
+
     INPUTS:
     event_status_arr: Estimate resp event level at each time-point
     pf_event_est_arr: 1D time series of estimated P/F ratio at each time-step
     offset_back_windows: Do not process edge windows at the end of the stay
 
     RETURNS: Event status array with right edge of L1 zones corrected
-
-    TESTS:
-    1) Event blocks are never modified if they are not adjacent to a level 1 block.
-    2) The right edge of an event1 block is corrected if required by the pf_event_est_arr values
-    3) The right edge of an event1 block is not modified if the values in 
-       pf_event_est_arr do not indicate this.
-
-    EXAMPLE:
-    event_status_arr: [1,1,1,1,2,2,2,...]
-    pf_event_est_arr: [263,273,222,188,177, 163,155,...]
-    offset_back_windows: e.g. 12 (~1 hour)
-    output: [1,1,1,2,2,2,2,...]
     """
     on_right_edge = False
     in_event = False
@@ -299,28 +219,16 @@ def correct_right_edge_l1(event_status_arr=None, pf_event_est_arr=None,
     return corrected_event_status_arr
 
 
-# UT : HIGH
 def correct_right_edge_l2(event_status_arr=None, pf_event_est_arr=None,
                           offset_back_windows=None):
     """Correct right edges of event 2 (correct to level 2)
+
     INPUTS:
     event_status_arr: Estimate resp event level at each time-point
     pf_event_est_arr: 1D time series of estimated P/F ratio at each time-step
     offset_back_windows: Do not process edge windows at the end of the stay
 
     RETURNS: Event status array with right edge of L2 zones corrected
-
-    TESTS: 
-    1) Event blocks are never modified if they are not adjacent to a level2 block.
-    2) The right edge of an event2 block is corrected if required by the pf_event_est_arr values
-    3) The right edge of an event2 block is not modified if the values in 
-       pf_event_est_arr do not indicate this.
-
-    EXAMPLE:
-    event_status_arr: [2,2,2,2,1,1,1,...]
-    pf_event_est_arr: [188, 169, 155, 210, 220,230,225, ...
-    offset_back_windows: e.g. 12 (~1 hour)
-    output: [2,2,2,1,1,1,1, ...]
     """
     on_right_edge = False
     in_event = False
@@ -341,7 +249,6 @@ def correct_right_edge_l2(event_status_arr=None, pf_event_est_arr=None,
     return corrected_event_status_arr
 
 
-# UT : HIGH
 def correct_right_edge_l3(event_status_arr=None, pf_event_est_arr=None,
                           offset_back_windows=None):
     """ Correct right edges of event 3 (correct to level 3)
@@ -352,20 +259,7 @@ def correct_right_edge_l3(event_status_arr=None, pf_event_est_arr=None,
     offset_back_windows: Do not process edge windows at the end of the stay
 
     RETURNS: Event status array with right edge of L3 zones corrected
-
-    TESTS:
-    1) Event blocks are never modified if they are not adjacent to a level3 block.
-    2) The right edge of an event3 block is corrected if required by the pf_event_est_arr values
-    3) The right edge of an event3 block is not modified if the values in 
-       pf_event_est_arr do not indicate this.
-
-    EXAMPLE:
-    event_status_arr: [3,3,3,2,2,2,1,1,...]
-    pf_event_est_arr: [89, 99, 95, 92, 110, 160, 210, 220, ...]
-    offset_back_windows: e.g 12 (~1 hour)
-    output: [3,3,3,3,2,2,1,1,...]
     """
-
     on_right_edge = False
     in_event = False
     corrected_event_status_arr = np.copy(event_status_arr)
@@ -385,8 +279,6 @@ def correct_right_edge_l3(event_status_arr=None, pf_event_est_arr=None,
     return corrected_event_status_arr
 
 
-# UT : HIGH
-# TODO: Refactor
 def merge_short_vent_gaps(vent_status_arr, short_gap_hours):
     """ Merge short gaps in the ventilation status array
 
@@ -395,18 +287,6 @@ def merge_short_vent_gaps(vent_status_arr, short_gap_hours):
     short_gap_hours: All gaps which are less than or equal to this threshold will be merged
 
     RETURNS: Ventilator status array with gaps removed
-
-    TESTS:
-    1) Gaps of larger length than short_gap_hours are not removed
-    2) A gap of shorter length is removed
-    3) The input array is not modified
-    4) Positions which are not gaps are never modified.
-
-    EXAMPLE:
-    vent_status_arr: [1,1,1,0,0,1,1,1,1,1,0,0,0,0]
-    short_gap_hours: ~30 mins
-    output: [1,1,1,1,1,1,1,1,1,1,0,0,0,0]
-
     """
     in_gap = False
     gap_length = 0
@@ -427,8 +307,6 @@ def merge_short_vent_gaps(vent_status_arr, short_gap_hours):
     return vent_status_arr
 
 
-# UT : Mid
-# TODO : Refactor
 def delete_short_vent_events(vent_status_arr, short_event_hours):
     """ Delete short events in the ventilation status array
     
@@ -437,16 +315,6 @@ def delete_short_vent_events(vent_status_arr, short_event_hours):
     short_event_hours: Threshold in hours when an event is considered "small"
 
     RETURNS: Ventilation status array with small events removed
-
-    TESTS:
-    1) Short events shorted or equal to the threshold are indeed deleted
-    2) Events longer than the threshold are not deleted.
-    3) Non-events are never modified.
-
-    EXAMPLE:
-    vent_status_arr: [0,0,0,0,1,1,1,1,0,0]
-    short_event_hours: 2
-    output: [0,0,0,0,0,0,0,0,0,0]
     """
     in_event = False
     event_length = 0
@@ -465,7 +333,6 @@ def delete_short_vent_events(vent_status_arr, short_event_hours):
     return vent_status_arr
 
 
-# UT : Mid
 def delete_low_density_hr_gap(vent_status_arr, hr_status_arr, configs=None):
     """ Deletes gaps in ventilation which are caused by likely sensor dis-connections
 
@@ -474,17 +341,6 @@ def delete_low_density_hr_gap(vent_status_arr, hr_status_arr, configs=None):
     hr_status_arr: Binary indicator of whether HR sensor was connected at a time-point
 
     RETURNS: Corrected ventilation status array
-
-    TESTS:
-    1) The HR status array is not modified by the function
-    2) A gap is not closed if the HR density is sufficient inside
-    3) A gap is closed if the HR density is not sufficient inside.
-    4) Elements of the input array which are not gaps are never modified.
-
-    EXAMPLE:
-    vent_status_arr: [1,1,1,0,0,0,0,1,1,1,1,...]
-    hr_status_arr: [1,1,1,0,0,0,0,1,1,1,1,...]
-    output: [1,1,1,1,1,1,1,1,1,1,1,1,...]
     """
     in_event = False
     in_gap = False
@@ -516,8 +372,6 @@ def delete_low_density_hr_gap(vent_status_arr, hr_status_arr, configs=None):
     return vent_status_arr
 
 
-# UT : HIGH
-# TODO Check there is no hardcoding here
 def ellis(x_orig):
     """ ELLIS model converting SpO2 in 100 % units into a PaO2 ABGA
         estimate
@@ -526,9 +380,6 @@ def ellis(x_orig):
     x_orig: SpO2 values from which to estimate
 
     RETURNS: Estimated PaO2 values for each time-step
-
-    TESTS:
-    1) The mathematical formulae is correctly implemented at each time-point.
     """
     x_orig[np.isnan(x_orig)] = SPO2_NORMAL_VALUE  # Normal value assumption
     x = x_orig / 100
@@ -541,7 +392,6 @@ def ellis(x_orig):
     return exp_full
 
 
-# UT : HIGH
 def delete_small_continuous_blocks(event_arr, block_threshold=None):
     """ Given an event array, deletes small contiguous blocks that are sandwiched between two other blocks, one of which
         is longer, they both have the same label. For the moment we delete blocks smaller than 30 minutes. Note this
@@ -552,20 +402,6 @@ def delete_small_continuous_blocks(event_arr, block_threshold=None):
     block_threshold: Blocks smaller than this length should be removed
 
     RETURNS: Event array after small continuous blocks are removed
-
-    TESTS:
-    1) A sandwiched block between two events of the same label is correctly changed, if it has smaller 
-       length than the threshold
-    2) A sandwiched block between two events of the same label is not changed, if its length
-       is longer than the threshold.
-    3) Blocks which are adjacent to two blocks of different labels are never modified.
-    4) A block is never modified if its neighbouring block are not both longer than it.
-    5) A block is never modified if one of its neighbouring blocks is not longer than the block length threshold.
-
-    EXAMPLE:
-    event_arr: [1,1,1,1,1,1,2,2,1,1,1,1,1,...]
-    block_threshold: e.g. 3
-    output: [1,1,1,1,1,1,1,1,1,1,1,...] 
     """
 
     block_list = []
@@ -661,7 +497,6 @@ def delete_small_continuous_blocks(event_arr, block_threshold=None):
     return (out_arr, diff_arr)
 
 
-# UT : Mid
 def gen_circ_failure_ep(map_col=None, lactate_col=None, milri_col=None, dobut_col=None,
                         levosi_col=None, theo_col=None, noreph_col=None, epineph_col=None, vaso_col=None):
     """ Circulatory failure endpoint definition
@@ -679,24 +514,7 @@ def gen_circ_failure_ep(map_col=None, lactate_col=None, milri_col=None, dobut_co
     vaso_col: Vasopressin drug imputed values at each time-point
 
     RETURNS: Binary indicator array if the patient was in circulatory failure (=1) or not (=0)
-
-    TESTS:
-    1) The original columns are not modified
-    2) The output array is binary and does not contain any NANs
-    3) The indicator is 0 if the lactate condition is not satisfied
-    4) The indicator is 0 if the MAP condition is not satisfied
-    5) The indicator is 1 if the MAP and lactate condition are satisfied
-    6) The lactate condition is satisfied but not long enough in a sub-array
-    7) The MAP condition is satisfied but not long enough in a sub-array.
-
-    EXAMPLE:
-    event_status_arr: Initially empty, at the end
-    map_col: [82,85,110, 90, 75, 65, 64, 55, ...]
-    lactate_col: [3.0,2.5,2.4,2.3, 2.9,2.5,2,3,2.4,...]
-    {milri,dobut,levosi,theo,noreph,epineph,vaso}_col: [0,...,0]
-    output: [0,0,0,0,0,0,1,1,...]
     """
-
     circ_status_arr = np.zeros_like(map_col)
     n_steps = len(circ_status_arr)
     # Computation of the circulatory failure toy version of the endpoint
@@ -722,6 +540,20 @@ def gen_circ_failure_ep(map_col=None, lactate_col=None, milri_col=None, dobut_co
 
 
 def compute_pao2(current_idx, pao2_col, pao2_meas_cnt, spo2_col, spo2_meas_cnt, search_window):
+    ''' Estimate the current PaO2 value
+
+    INPUTS:
+    current_idx: Index of array at which PaO2 value is estimated
+    pao2_col: PaO2 pre-imputed column
+    pao2_meas_cnt: Cumulative measurement counts of PaO2 at each grid-point
+    spo2_col: SpO2 pre-imputed column
+    spo2_meas_cnt: Cumulative measurement counts of SpO2 at each grid-point
+    search_window: Backward search window to find real PaO2 measurements in
+
+    RETURNS: PaO2 value estimated at <current_idx> and a boolean indicating whether the
+             estimated from a real PaO2 measurement close in time.
+    '''
+    
     # Estimate the current PaO2 value
     bw_pao2_meas = pao2_meas_cnt[max(0, current_idx - search_window):current_idx + 1]
     bw_pao2 = pao2_col[max(0, current_idx - search_window):current_idx + 1]
@@ -754,6 +586,24 @@ def compute_pao2(current_idx, pao2_col, pao2_meas_cnt, spo2_col, spo2_meas_cnt, 
 
 def compute_fio2(current_idx, current_time, suppox_idx, suppox_time, fio2_col, fio2_meas_cnt,
                  vent_mode_col, vent_status_col, suppox_col, search_window):
+    ''' Estimate the current FiO2 value at a grid-point
+
+    INPUTS:
+    current_idx: Time-grid index at which FiO2 should be estimated
+    current_time: Absolute time corresponding to grid-point
+    suppox_idx: Current measurement index in supplementary oxygen meas. array synced to <current_time>
+    suppox_time: Absolute time corresponding to current SuppOx measurement
+    fio2_col: Pre-imputed column of FiO2 values
+    fio2_meas_cnt: Cumulative measurement count of FiO2 measurements
+    vent_mode_col: Pre-imputed ventilation mode column
+    vent_status_col: Estimated ventilation state at each grid-point
+    suppox_col: Pre-imputed column of supplementary oxygen measurements
+    search_window: Length of search window in which to look for recent FiO2 measurements
+
+    RETURNS: FiO2 value estimated at <current_idx>, and 3 status indicators which are mutually exclusive
+             and indicate which estimation mode was used to produce the estimate
+    '''
+    
     # Estimate the current FiO2 value
     bw_fio2 = fio2_col[max(0, current_idx - search_window):current_idx + 1]
     bw_fio2_meas = fio2_meas_cnt[max(0, current_idx - search_window):current_idx + 1]
@@ -796,6 +646,28 @@ def compute_fio2(current_idx, current_time, suppox_idx, suppox_time, fio2_col, f
 def compute_vent_status(etco2_col, etco2_meas_cnt, peep_col, peep_meas_cnt,
                         hr_meas_cnt, vent_mode_col, tv_col, airway_col, peep_search_window, hr_search_window,
                         vent_vote_threshold, peep_threshold):
+    ''' Compute the ventilation status (patient was ventilated or not at a grid point) based on
+        a ventilation voting mechanism taking different factors into account
+
+    INPUTS:
+    etco2_col: Pre-imputed EtCO2 column
+    etco2_meas_cnt: Cumulative measurement count for the EtCo2 measurements
+    peep_col: Pre-imputed PEEP column
+    peep_meas_cnt: Cumulative measurement count for the PEEP measurements
+    hr_meas_cnt: Cumulative measurement count for the HR measurements
+    vent_mode_col: Pre-imputed ventilation mode column
+    tv_col: Pre-imputed TV column
+    airway_col: Pre-imputed airway presence columns
+    peep_search_window: Window size in which to search for PEEP measurements
+    hr_search_window: Window size in which to search for HR measurements
+    vent_vote_threshold: Threshold to decide whether ventilation presence should be estimated
+    peep_threshold: PEEP threshold to use for the point-wise PEEP condition
+
+    RETURNS: A binary array indicating ventilation status at each time-point, and auxiliary arrays giving the HR
+             measurement status, and PEEP measurent status as well as indication whether the PEEP threshold
+             was crossed at a time-point
+    '''
+    
     n_steps = len(etco2_col)
     vent_status = np.zeros(n_steps)
     peep_status = np.zeros(n_steps)
@@ -861,8 +733,6 @@ def compute_vent_status(etco2_col, etco2_meas_cnt, peep_col, peep_meas_cnt,
     return vent_status, peep_status, peep_threshold_status, hr_status
 
 
-# UT : V HIGH
-# TODO refactor
 def compute_pao2_fio2_estimates(abs_dtime_arr=None, suppox_dtime_arr=None, fio2_col=None, fio2_meas_cnt=None,
                                 pao2_col=None, pao2_meas_cnt=None, spo2_col=None, spo2_meas_cnt=None, suppox_col=None,
                                 vent_mode_col=None, vent_status_col=None, sz_fio2_window=None,
@@ -896,25 +766,6 @@ def compute_pao2_fio2_estimates(abs_dtime_arr=None, suppox_dtime_arr=None, fio2_
 
     RETURNS: Estimated PaO2 / FiO2 values at a time-point, and the 3 status arrays of the way FiO2 
              was estimated at a particular time-point.
-
-    TESTS:
-    1) Following arrays are not modified (ratio_arr, abs_dtime_arr, fio2_col,
-       fio2_meas_cnt, pao2_meas_cnt, pao2_col, spo2_col, spo2_meas_cnt, 
-       vent_mode_col ,vent_status_arr. suppox_val, pao2_avail_col)
-    2) FiO2 value is correctly used if FiO2 is measured and or patient is in non-invasive or invasive
-       ventilation for the FiO2 estimate.
-    3) FiO2 value is correctly estimated with ambient air if there was no recent supplementary oxygen 
-       measured.
-    4) FiO2 value is correctly estimated with supplementary oxygen if there was a recent such variable.
-    5) PaO2 value is correctly estimated from its last measurement if it was just measured.
-    6) PaO2 value is estimated from a previous SpO2 measurement with the Ellis model
-    7) PaO2 value is estimated using a default SpO2 value assumption if the last SpO2 measurement was too far away
-       in time from the grid point.
-    8) The fio2_avail_arr has 1 at those time-points where a recent measurement was available.
-    9) The fio2_suppox_arr has 1 at those time-points where FiO2 was estimated from suppox values, and no FiO
-       measurement was recently available.
-    10) The fio2_ambient_arr has 1 if neither recent suppox or FiO2 was available for estimation in a recent
-        window
     """
 
     # Array pointers tracking the current active value of each type
@@ -974,14 +825,6 @@ def load_relevant_columns(df_pid, var_map):
     var_map: Map of the meta-variable IDs of particular channels
 
     RETURNS: Dictionary with relevant channel columns
-
-    TESTS:
-    1) The output dictionary contains all required columns
-    2) The returned columns have the correct types
-    3) The columns in the dict are equal to the columns in the data-frame, not modified.
-
-    EXAMPLE:
-    Correct patient data-frame with correct types.
     """
     pat_cols = {}
 
@@ -1033,19 +876,7 @@ def suppox_to_fio2(suppox_val):
     suppox_val: Supplementary oxygen values
 
     RETURNS: Estimated FiO2 values at time-points
-
-    TESTS:
-    1) Larger values than max. oxygen are clipped correctly
-    2) All other values are returned as in the lookup table
-
-    EXAMPLES:
-    suppox_val: 16
-    output: 75
-
-    suppox_val: 3
-    output: 39
     """
-
     if suppox_val > MAX_SUPPOX_KEY:
         return MAX_SUPPOX_TO_FIO2_VAL
     else:
@@ -1087,16 +918,6 @@ def assemble_out_df(time_col=None, rel_time_col=None, pid_col=None, event_status
     circ_status_arr: Circulatory failure level annotated at each time-point
 
     RETURNS: Complete endpoint data-frame for a patient
-
-    TESTS
-    1) Input arrays are not modified
-    2) The output data-frame has all required columns
-    3) The columns output in the data-frame have the correct types and maximal set of unique values.
-    4) Relative date-time is increasing sequence equally spaced.
-    5) PID column has one unique value.
-
-    EXAMPLE:
-    Input 1D arrays with correct types
     """
     df_out_dict = {}
 
