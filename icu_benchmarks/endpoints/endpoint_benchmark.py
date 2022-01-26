@@ -375,8 +375,9 @@ def ellis(x_orig):
 
     RETURNS: Estimated PaO2 values for each time-step
     """
-    x_orig[np.isnan(x_orig)] = SPO2_NORMAL_VALUE  # Normal value assumption
-    x = x_orig / 100
+    x_new=np.copy(x_orig)
+    x_new[np.isnan(x_new)] = SPO2_NORMAL_VALUE  # Normal value assumption
+    x = x_new / 100
     x[x == 1] = 0.999
     exp_base = (11700 / ((1 / x) - 1))
     exp_sqrbracket = np.sqrt(pow(50, 3) + (exp_base ** 2))
@@ -1028,8 +1029,7 @@ def endpoint_gen_benchmark(configs):
                                                                                              PEEP_TSH)
 
         if configs["detect_hr_gaps"]:
-            vent_status_arr = delete_low_density_hr_gap(vent_status_arr, hr_status,
-                                                        configs=configs)
+            vent_status_arr = delete_low_density_hr_gap(vent_status_arr, hr_status)
         if configs["merge_short_vent_gaps"]:
             vent_status_arr = merge_short_vent_gaps(vent_status_arr, configs["short_gap_hours"])
 

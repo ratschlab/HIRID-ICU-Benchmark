@@ -4,6 +4,7 @@ import copy
 
 import pytest
 import numpy as np
+import numpy.testing as np_test
 
 from icu_benchmarks.common.constants import STEPS_PER_HOUR, LEVEL1_RATIO_RESP, \
     LEVEL2_RATIO_RESP, LEVEL3_RATIO_RESP, FRACTION_TSH_RESP, FRACTION_TSH_CIRC
@@ -29,7 +30,6 @@ def test_kernel_smooth_arr():
     assert np.all(input_arr_1_bef == input_arr_1)
 
     # Nadaraya Watson estimator is correctly applied
-
     input_arr_2 = np.array([1.3, 2.5, 3.6])
     bandwidth_2 = 2.5
     correct_formula = np.array([1.4436806438153837, 2.48934930210808, 3.468236127284816])
@@ -40,8 +40,13 @@ def test_kernel_smooth_arr():
 
 def test_ellis():
     spo2_input_arr = np.array([98, 98, 99, np.nan])
+    spo2_input_arr_bef=np.copy(spo2_input_arr)
+    
     ellis_exp = endpoint_benchmark.ellis(spo2_input_arr)
     correct_ellis_exp = np.array([104.1878943, 104.1878943, 131.93953975, 104.1878943])
+
+    # Input array not corrupted
+    np_test.assert_equal(spo2_input_arr,spo2_input_arr_bef)
 
     assert np.allclose(ellis_exp, correct_ellis_exp)
 
