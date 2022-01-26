@@ -14,14 +14,14 @@ import pandas as pd
 import skfda.preprocessing.smoothing.kernel_smoothers as skks
 import skfda.representation.grid as skgrid
 from icu_benchmarks.common.constants import STEPS_PER_HOUR, LEVEL1_RATIO_RESP, LEVEL2_RATIO_RESP, LEVEL3_RATIO_RESP, \
-    FRACTION_TSH_CIRC, FRACTION_TSH_RESP, DATETIME, PID, REL_DATETIME, SPO2_NORMAL_VALUE, NIV_VENT_MODE, SUPPOX_TO_FIO2, \
-    PAO2_MIX_SCALE, ABGA_WINDOW, SUPPOX_MAX_FFILL, AMBIENT_FIO2, EVENT_SEARCH_WINDOW, FI02_SEARCH_WINDOW, \
-    PA02_SEARCH_WINDOW, PEEP_SEARCH_WINDOW, HR_SEARCH_WINDOW, VENT_VOTE_TSH, PEEP_TSH
+    FRACTION_TSH_CIRC, FRACTION_TSH_RESP, DATETIME, PID, REL_DATETIME, SPO2_NORMAL_VALUE, NIV_VENT_MODE, \
+    SUPPOX_TO_FIO2, PAO2_MIX_SCALE, ABGA_WINDOW, SUPPOX_MAX_FFILL, AMBIENT_FIO2, EVENT_SEARCH_WINDOW, \
+    FI02_SEARCH_WINDOW, PA02_SEARCH_WINDOW, PEEP_SEARCH_WINDOW, HR_SEARCH_WINDOW, VENT_VOTE_TSH, PEEP_TSH, \
+    FRACTION_VENT_HR_GAP
 
 MINS_PER_STEP = 60 // STEPS_PER_HOUR
 MAX_SUPPOX_KEY = np.array(list(SUPPOX_TO_FIO2.keys())).max()
 MAX_SUPPOX_TO_FIO2_VAL = SUPPOX_TO_FIO2[MAX_SUPPOX_KEY]
-
 
 
 def mix_real_est_pao2(pao2_col, pao2_meas_cnt, pao2_est_arr):
@@ -125,6 +125,7 @@ def assign_resp_levels(pf_event_est_arr=None, vent_status_arr=None,
     new_event_status_arr = np.zeros(n_steps, dtype="<S10")
     new_event_status_arr.fill("UNKNOWN")
     for idx in range(0, len(new_event_status_arr) - offset_back_windows):
+        # We search in the future for resp failure (different from circ failure which is centered)
         est_idx = pf_event_est_arr[idx:min(n_steps, idx + sz_window)]
         est_vent = vent_status_arr[idx:min(n_steps, idx + sz_window)]
         est_peep_dense = peep_status_arr[idx:min(n_steps, idx + sz_window)]
@@ -279,7 +280,7 @@ def merge_short_vent_gaps(vent_status_arr, short_gap_hours):
     """
     in_gap = False
     gap_length = 0
-    new_vent_status_arr=np.copy(vent_status_arr)
+    new_vent_status_arr = np.copy(vent_status_arr)
 
     for idx in range(len(vent_status_arr)):
         cur_state = vent_status_arr[idx]
@@ -306,8 +307,8 @@ def delete_short_vent_events(vent_status_arr, short_event_hours):
 
     RETURNS: Ventilation status array with small events removed
     """
-    new_vent_status_arr=np.copy(vent_status_arr)
-    
+    new_vent_status_arr = np.copy(vent_status_arr)
+
     in_event = False
     event_length = 0
     for idx in range(len(vent_status_arr)):
@@ -325,8 +326,9 @@ def delete_short_vent_events(vent_status_arr, short_event_hours):
     return new_vent_status_arr
 
 
-def delete_low_density_hr_gap(vent_status_arr, hr_status_arr, configs=None):
-    """ Deletes gaps in ventilation which are caused by likely sensor dis-connections
+def delete_low_density_hr_gap(vent_status_arr, hr_status_arr):
+    """ Deletes gaps in ventilation which are caused by likely sensor dis-connections.
+    If HR is not available during FRACTION_VENT_HR_GAP of the steps we set ventilation to 1.
 
     INPUTS:
     vent_status_arr: Pre-estimated ventilation status at a time-point
@@ -355,7 +357,7 @@ def delete_low_density_hr_gap(vent_status_arr, hr_status_arr, configs=None):
             hr_sub_arr = hr_status_arr[gap_idx:idx]
 
             # Close the gap if the density of HR is too low in between
-            if np.sum(hr_sub_arr) / hr_sub_arr.size <= configs["vent_hr_density_threshold"]:
+            if np.sum(hr_sub_arr) / hr_sub_arr.size <= FRACTION_VENT_HR_GAP:
                 vent_status_arr[gap_idx:idx] = 1.0
 
             in_gap = False
@@ -511,17 +513,22 @@ def gen_circ_failure_ep(map_col=None, lactate_col=None, milri_col=None, dobut_co
     n_steps = len(circ_status_arr)
     # Computation of the circulatory failure toy version of the endpoint
     for jdx in range(0, n_steps):
-        map_subarr = map_col[max(0, jdx - STEPS_PER_HOUR):min(jdx + STEPS_PER_HOUR, n_steps)]
-        lact_subarr = lactate_col[max(0, jdx - STEPS_PER_HOUR):min(jdx + STEPS_PER_HOUR, n_steps)]
-        milri_subarr = milri_col[max(0, jdx - STEPS_PER_HOUR):min(jdx + STEPS_PER_HOUR, n_steps)]
-        dobut_subarr = dobut_col[max(0, jdx - STEPS_PER_HOUR):min(jdx + STEPS_PER_HOUR, n_steps)]
-        levosi_subarr = levosi_col[max(0, jdx - STEPS_PER_HOUR):min(jdx + STEPS_PER_HOUR, n_steps)]
-        theo_subarr = theo_col[max(0, jdx - STEPS_PER_HOUR):min(jdx + STEPS_PER_HOUR, n_steps)]
-        noreph_subarr = noreph_col[max(0, jdx - STEPS_PER_HOUR):min(jdx + STEPS_PER_HOUR, n_steps)]
-        epineph_subarr = epineph_col[max(0, jdx - STEPS_PER_HOUR):min(jdx + STEPS_PER_HOUR, n_steps)]
-        vaso_subarr = vaso_col[max(0, jdx - STEPS_PER_HOUR):min(jdx + STEPS_PER_HOUR, n_steps)]
-        map_crit_arr = ((map_subarr < 65) | (milri_subarr > 0) | (dobut_subarr > 0) | (levosi_subarr > 0) | (
-                theo_subarr > 0) | (noreph_subarr > 0) | (epineph_subarr > 0) | (vaso_subarr > 0))
+        sym_window = EVENT_SEARCH_WINDOW // 2  # We center window search for circ
+        low_idx = max(0, jdx - sym_window)
+        high_idx = min(jdx + sym_window, n_steps)
+        map_subarr = map_col[low_idx:high_idx]
+        lact_subarr = lactate_col[low_idx:high_idx]
+        milri_subarr = milri_col[low_idx:high_idx]
+        dobut_subarr = dobut_col[low_idx:high_idx]
+        levosi_subarr = levosi_col[low_idx:high_idx]
+        theo_subarr = theo_col[low_idx:high_idx]
+        noreph_subarr = noreph_col[low_idx:high_idx]
+        epineph_subarr = epineph_col[low_idx:high_idx]
+        vaso_subarr = vaso_col[low_idx:high_idx]
+        map_crit = (map_subarr < 65)
+        drug_crit = (milri_subarr > 0) | (dobut_subarr > 0) | (levosi_subarr > 0) | (theo_subarr > 0) | (
+                noreph_subarr > 0) | (epineph_subarr > 0) | (vaso_subarr > 0)
+        map_crit_arr = (map_crit | drug_crit)
         lact_crit_arr = (lact_subarr > 2)
         map_condition = np.sum(map_crit_arr) >= FRACTION_TSH_CIRC * len(map_crit_arr)
         lact_condition = np.sum(lact_crit_arr) >= FRACTION_TSH_CIRC * len(map_crit_arr)
@@ -545,7 +552,7 @@ def compute_pao2(current_idx, pao2_col, pao2_meas_cnt, spo2_col, spo2_meas_cnt, 
     RETURNS: PaO2 value estimated at <current_idx> and a boolean indicating whether the
              estimated from a real PaO2 measurement close in time.
     '''
-    
+
     # Estimate the current PaO2 value
     bw_pao2_meas = pao2_meas_cnt[max(0, current_idx - search_window):current_idx + 1]
     bw_pao2 = pao2_col[max(0, current_idx - search_window):current_idx + 1]
@@ -595,7 +602,7 @@ def compute_fio2(current_idx, current_time, suppox_idx, suppox_time, fio2_col, f
     RETURNS: FiO2 value estimated at <current_idx>, and 3 status indicators which are mutually exclusive
              and indicate which estimation mode was used to produce the estimate
     '''
-    
+
     # Estimate the current FiO2 value
     bw_fio2 = fio2_col[max(0, current_idx - search_window):current_idx + 1]
     bw_fio2_meas = fio2_meas_cnt[max(0, current_idx - search_window):current_idx + 1]
@@ -659,7 +666,7 @@ def compute_vent_status(etco2_col, etco2_meas_cnt, peep_col, peep_meas_cnt,
              measurement status, and PEEP measurent status as well as indication whether the PEEP threshold
              was crossed at a time-point
     '''
-    
+
     n_steps = len(etco2_col)
     vent_status = np.zeros(n_steps)
     peep_status = np.zeros(n_steps)

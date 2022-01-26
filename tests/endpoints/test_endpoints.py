@@ -5,9 +5,8 @@ import copy
 import pytest
 import numpy as np
 
-
-from icu_benchmarks.common.constants import STEPS_PER_HOUR, PAO2_MIX_SCALE, LEVEL1_RATIO_RESP, \
-    LEVEL2_RATIO_RESP, LEVEL3_RATIO_RESP, VENT_ETCO2_TSH, FRACTION_TSH_RESP, SPO2_NORMAL_VALUE
+from icu_benchmarks.common.constants import STEPS_PER_HOUR, LEVEL1_RATIO_RESP, \
+    LEVEL2_RATIO_RESP, LEVEL3_RATIO_RESP, FRACTION_TSH_RESP, FRACTION_TSH_CIRC
 from icu_benchmarks.endpoints import endpoint_benchmark
 
 TEST_ROOT = Path(__file__).parent.parent
@@ -18,17 +17,16 @@ MINS_PER_STEP = 60 // STEPS_PER_HOUR
 
 
 def test_kernel_smooth_arr():
-
     # If fewer than 2 observations the unsmoothed array is returned as an edge case
     input_arr_1 = np.array([2])
-    input_arr_1_bef=np.copy(input_arr_1)
-    
+    input_arr_1_bef = np.copy(input_arr_1)
+
     bandwidth_1 = 2
     res_1 = endpoint_benchmark.kernel_smooth_arr(input_arr_1, bandwidth_1)
     assert np.all(res_1 == input_arr_1)
 
     # Input array not corrupted
-    assert np.all(input_arr_1_bef==input_arr_1)
+    assert np.all(input_arr_1_bef == input_arr_1)
 
     # Nadaraya Watson estimator is correctly applied
 
@@ -46,6 +44,7 @@ def test_ellis():
     correct_ellis_exp = np.array([104.1878943, 104.1878943, 131.93953975, 104.1878943])
 
     assert np.allclose(ellis_exp, correct_ellis_exp)
+
 
 @pytest.mark.parametrize("pf,vent,peep_status,peep_threshold,event",
                          ((LEVEL1_RATIO_RESP, 1.0, 1.0, 1.0, b"event_1"),
@@ -89,24 +88,23 @@ def test_assign_resp_levels_fixed(pf, vent, peep_status, peep_threshold, event):
 
 
 def test_percentile_smooth():
-    
     # We test a flat signal
     flat_signal = np.ones((100,)).astype(float)
-    flat_signal_bef=np.copy(flat_signal)
-    
+    flat_signal_bef = np.copy(flat_signal)
+
     out_flat = endpoint_benchmark.percentile_smooth(flat_signal, 50, 20)
     assert np.all(out_flat == flat_signal)
-    assert np.all(flat_signal_bef==flat_signal)
+    assert np.all(flat_signal_bef == flat_signal)
 
     # We test a constant slope signal
     steps_signal = np.arange(8).repeat(2).astype(float)
     steps_signal_bef = np.copy(steps_signal)
-    
+
     out_steps = endpoint_benchmark.percentile_smooth(steps_signal, 50, 20)
     assert np.all(out_steps[:2] == 0.0)
     assert np.all(out_steps[2::2] - np.arange(7) == 0.5)
     assert out_steps[-1] == 7.0
-    assert np.all(steps_signal_bef==steps_signal)
+    assert np.all(steps_signal_bef == steps_signal)
 
 
 def test_merge_short_vent_gaps():
@@ -117,14 +115,14 @@ def test_merge_short_vent_gaps():
         [1, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 0, 0, 0, 0])
     short_gap_hours = 1
 
-    vent_status_arr_1_bef=np.copy(vent_status_arr_1)
+    vent_status_arr_1_bef = np.copy(vent_status_arr_1)
 
     status_1 = endpoint_benchmark.merge_short_vent_gaps(vent_status_arr_1, short_gap_hours)
 
     assert np.all(status_1 == vent_status_arr_1)
 
     # input corruption
-    assert np.all(vent_status_arr_1==vent_status_arr_1_bef)
+    assert np.all(vent_status_arr_1 == vent_status_arr_1_bef)
 
     # a gap of shorter length is removed
     vent_status_arr_2 = np.array([1, 1, 1, 0, 0, 1, 1, 1, 1, 1, 0, 0, 0, 0])
@@ -136,10 +134,10 @@ def test_merge_short_vent_gaps():
 
     # The input array is not modified
     vent_status_arr_3 = np.array([1, 1, 1, 0, 0, 1, 1, 1, 1, 1, 0, 0, 0, 0])
-    vent_status_arr_3_bef=np.copy(vent_status_arr_3)
-    
+    vent_status_arr_3_bef = np.copy(vent_status_arr_3)
+
     status_3 = endpoint_benchmark.merge_short_vent_gaps(vent_status_arr_3, short_gap_hours)
-    assert np.all(vent_status_arr_3==vent_status_arr_3_bef)
+    assert np.all(vent_status_arr_3 == vent_status_arr_3_bef)
 
     # positions which are not gaps are never modified (zeros in the begginning os the array are not considered as gaps)
     vent_status_arr_4 = np.array([1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0])
@@ -152,14 +150,14 @@ def test_delete_short_vent_events():
 
     # Short events shorted than the threshold are indeed deleted
     vent_status_arr_1 = np.array([0, 0, 0, 0, 1, 1, 1, 1, 0, 0])
-    vent_status_arr_1_bef=np.copy(vent_status_arr_1)
-    
+    vent_status_arr_1_bef = np.copy(vent_status_arr_1)
+
     short_event_hours_ = 1
     corrected_events = np.array([0, 0, 0, 0, 0, 0, 0, 0, 0, 0])
 
     res_1 = endpoint_benchmark.delete_short_vent_events(vent_status_arr_1, short_event_hours_)
     assert np.all(res_1 == corrected_events)
-    assert np.all(vent_status_arr_1==vent_status_arr_1_bef)
+    assert np.all(vent_status_arr_1 == vent_status_arr_1_bef)
 
     # Events longer or equal than the threshold are not deleted
     vent_status_arr_2 = np.array([0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0])
@@ -186,18 +184,18 @@ def test_mix_real_est_pao2():
     pao2_est_arr_2 = np.array([198.3, 198.3, 198.3, 198.3])
 
     # Save the inputs to check they are not modified by the function
-    pao2_col_1_bef=np.copy(pao2_col_1)
-    pao2_meas_cnt_1_bef=np.copy(pao2_meas_cnt_1)
-    pao2_est_arr_1_bef=np.copy(pao2_est_arr_1)
+    pao2_col_1_bef = np.copy(pao2_col_1)
+    pao2_meas_cnt_1_bef = np.copy(pao2_meas_cnt_1)
+    pao2_est_arr_1_bef = np.copy(pao2_est_arr_1)
 
     # formula is correct
     status_1 = endpoint_benchmark.mix_real_est_pao2(pao2_col_1, pao2_meas_cnt_1, pao2_est_arr_1)
     assert np.all(status_1 == correct_formula)
 
     # Input arrays not corrupted
-    assert np.all(pao2_col_1_bef==pao2_col_1)
-    assert np.all(pao2_meas_cnt_1_bef==pao2_meas_cnt_1)
-    assert np.all(pao2_est_arr_1_bef==pao2_est_arr_1)
+    assert np.all(pao2_col_1_bef == pao2_col_1)
+    assert np.all(pao2_meas_cnt_1_bef == pao2_meas_cnt_1)
+    assert np.all(pao2_est_arr_1_bef == pao2_est_arr_1)
 
     # array doesn't change
     status_2 = endpoint_benchmark.mix_real_est_pao2(pao2_col_2, pao2_meas_cnt_2, pao2_est_arr_2)
@@ -206,24 +204,24 @@ def test_mix_real_est_pao2():
 
 def test_correct_right_edge_l0():
     # Event blocks are never modified if they are not adjacent to a level 0 block.
-    
+
     offset_back_windows_ = 1
 
     # The right edge of an event0 block is corrected if required by the pf_event_est_arr values
     event_status_arr_1 = [b"event_0", b"event_0", b"event_0", b"event_0", b"event_1", b"event_1", b"event_1"]
-    event_status_arr_1_bef=copy.copy(event_status_arr_1)
-    
+    event_status_arr_1_bef = copy.copy(event_status_arr_1)
+
     pf_event_est_arr_1 = np.array([350, 343, 362, 310, 306, 288, 263])
-    pf_event_est_arr_1_bef=copy.copy(pf_event_est_arr_1)
-    
+    pf_event_est_arr_1_bef = copy.copy(pf_event_est_arr_1)
+
     correction = [b'event_0', b'event_0', b'event_0', b'event_0', b'event_0', b'event_1', b'event_1']
 
     status_1 = endpoint_benchmark.correct_right_edge_l0(event_status_arr_1, pf_event_est_arr_1, offset_back_windows_)
     assert np.all(status_1 == correction)
 
     # input arrays are not corrupted
-    assert np.all(event_status_arr_1==event_status_arr_1_bef)
-    assert np.all(pf_event_est_arr_1==pf_event_est_arr_1_bef)
+    assert np.all(event_status_arr_1 == event_status_arr_1_bef)
+    assert np.all(pf_event_est_arr_1 == pf_event_est_arr_1_bef)
 
     # the right edge of an event0 block is not modified if the values in pf_event_est_arr do not indicate this
     event_status_arr_2 = [b"event_0", b"event_0", b"event_0", b"event_0", b"event_1", b"event_1", b"event_1"]
@@ -239,19 +237,19 @@ def test_correct_right_edge_l1():
 
     # The right edge of an event1 block is corrected if required by the pf_event_est_arr values
     event_status_arr_1 = [b"event_1", b"event_1", b"event_1", b"event_1", b"event_2", b"event_2", b"event_2"]
-    event_status_arr_1_bef=copy.copy(event_status_arr_1)
-    
+    event_status_arr_1_bef = copy.copy(event_status_arr_1)
+
     pf_event_est_arr_1 = np.array([350, 343, 362, 310, 299, 288, 263])
-    pf_event_est_arr_1_bef=copy.copy(pf_event_est_arr_1)
-    
+    pf_event_est_arr_1_bef = copy.copy(pf_event_est_arr_1)
+
     correction = [b'event_1', b'event_1', b'event_1', b'event_1', b'event_1', b'event_1', b'event_2']
 
     status_1 = endpoint_benchmark.correct_right_edge_l1(event_status_arr_1, pf_event_est_arr_1, offset_back_windows_)
     assert np.all(status_1 == correction)
 
     # input arrays not corrupted
-    assert np.all(event_status_arr_1==event_status_arr_1_bef)
-    assert np.all(pf_event_est_arr_1==pf_event_est_arr_1_bef)
+    assert np.all(event_status_arr_1 == event_status_arr_1_bef)
+    assert np.all(pf_event_est_arr_1 == pf_event_est_arr_1_bef)
 
     # The right edge of an event1 block is not modified if the values in pf_event_est_arr do not indicate this
     event_status_arr_3 = [b"event_1", b"event_1", b"event_1", b"event_1", b"event_2", b"event_2", b"event_2"]
@@ -265,19 +263,19 @@ def test_correct_right_edge_l2():
 
     # The right edge of an event1 block is corrected if required by the pf_event_est_arr values
     event_status_arr_1 = [b"event_2", b"event_2", b"event_2", b"event_2", b"event_1", b"event_1", b"event_1"]
-    event_status_arr_1_bef=copy.copy(event_status_arr_1)
-    
+    event_status_arr_1_bef = copy.copy(event_status_arr_1)
+
     pf_event_est_arr_1 = np.array([188, 169, 155, 210, 190, 230, 225])
-    pf_event_est_arr_1_bef=copy.copy(pf_event_est_arr_1)
-    
+    pf_event_est_arr_1_bef = copy.copy(pf_event_est_arr_1)
+
     correction = [b'event_2', b'event_2', b'event_2', b'event_2', b'event_2', b'event_1', b'event_1']
 
     status_1 = endpoint_benchmark.correct_right_edge_l2(event_status_arr_1, pf_event_est_arr_1, offset_back_windows_)
     assert np.all(status_1 == correction)
 
     # input arrays not corrupted
-    assert np.all(event_status_arr_1==event_status_arr_1_bef)
-    assert np.all(pf_event_est_arr_1==pf_event_est_arr_1_bef)
+    assert np.all(event_status_arr_1 == event_status_arr_1_bef)
+    assert np.all(pf_event_est_arr_1 == pf_event_est_arr_1_bef)
 
     # The right edge of an event1 block is not modified if the values in pf_event_est_arr do not indicate this
     event_status_arr_2 = [b"event_2", b"event_2", b"event_2", b"event_2", b"event_1", b"event_1", b"event_1"]
@@ -292,18 +290,18 @@ def test_correct_right_edge_l3():
     # The right edge of an event1 block is corrected if required by the pf_event_est_arr values
     event_status_arr_1 = [b"event_3", b"event_3", b"event_3", b"event_2", b"event_2", b"event_2", b"event_1",
                           b"event_1"]
-    event_status_arr_1_bef=copy.copy(event_status_arr_1)
-    
+    event_status_arr_1_bef = copy.copy(event_status_arr_1)
+
     pf_event_est_arr_1 = np.array([89, 99, 95, 92, 110, 160, 210, 220])
-    pf_event_est_arr_1_bef=copy.copy(pf_event_est_arr_1)
-    
+    pf_event_est_arr_1_bef = copy.copy(pf_event_est_arr_1)
+
     correction = [b'event_3', b'event_3', b'event_3', b'event_3', b'event_2', b'event_2', b'event_1', b'event_1']
     status_1 = endpoint_benchmark.correct_right_edge_l3(event_status_arr_1, pf_event_est_arr_1, offset_back_windows_)
     assert np.all(status_1 == correction)
 
     # input arrays not corrupted
-    assert np.all(event_status_arr_1==event_status_arr_1_bef)
-    assert np.all(pf_event_est_arr_1==pf_event_est_arr_1_bef)
+    assert np.all(event_status_arr_1 == event_status_arr_1_bef)
+    assert np.all(pf_event_est_arr_1 == pf_event_est_arr_1_bef)
 
     # The right edge of an event1 block is not modified if the values in pf_event_est_arr do not indicate this
     event_status_arr_2 = [b"event_3", b"event_3", b"event_3", b"event_2", b"event_2", b"event_2", b"event_1",
@@ -356,3 +354,81 @@ def test_delete_small_continuous_blocks():
     event_arr_5 = np.array([1, 1, 1, 2, 2, 2, 1, 1])
     result_5 = endpoint_benchmark.delete_small_continuous_blocks(event_arr_5, block_threshold)[0]
     assert np.all(event_arr_5 == result_5)
+
+
+def test_delete_low_density_hr_gaps():
+    hr = np.array([1, 1, 1, 1, 0, 1, 0, 1, 1, 1, 1, 0, 0, 0, 0])
+    vent = np.array([1, 1, 1, 0, 0, 0, 0, 1, 1, 0, 1, 1, 0, 0, 1])
+    gt = np.array([1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 1, 1, 1, 1, 1])
+    out_vent = endpoint_benchmark.delete_low_density_hr_gap(vent, hr)
+    assert np.all(out_vent == gt)
+
+
+def test_gen_circ_failure_ep():
+    map = np.ones(72) * 64
+    lact = np.ones(72) * 3
+    drug_true = np.ones(72)
+    drug_false = np.zeros(72)
+
+    # Basic examples
+    drug_true_full_output = endpoint_benchmark.gen_circ_failure_ep(map, lact,
+                                                                   drug_true,
+                                                                   drug_true,
+                                                                   drug_true,
+                                                                   drug_true,
+                                                                   drug_true,
+                                                                   drug_true,
+                                                                   drug_true)
+    assert np.all(drug_true_full_output == 1)
+    drug_false_full_output = endpoint_benchmark.gen_circ_failure_ep(map, lact,
+                                                                    drug_false,
+                                                                    drug_false,
+                                                                    drug_false,
+                                                                    drug_false,
+                                                                    drug_false,
+                                                                    drug_false,
+                                                                    drug_false)
+    assert np.all(drug_false_full_output == 1)
+
+    drug_false_no_map_full_output = endpoint_benchmark.gen_circ_failure_ep(map + 1, lact,
+                                                                           drug_false,
+                                                                           drug_false,
+                                                                           drug_false,
+                                                                           drug_false,
+                                                                           drug_false,
+                                                                           drug_false,
+                                                                           drug_false)
+    assert np.all(drug_false_no_map_full_output == 0)
+
+    drug_false_no_lact_full_output = endpoint_benchmark.gen_circ_failure_ep(map, lact - 1,
+                                                                            drug_false,
+                                                                            drug_false,
+                                                                            drug_false,
+                                                                            drug_false,
+                                                                            drug_false,
+                                                                            drug_false,
+                                                                            drug_false)
+    assert np.all(drug_false_no_lact_full_output == 0)
+
+    # Threshold example
+    to_remove = int(24 * (1 - FRACTION_TSH_CIRC)) + 1
+    lact_sparse = np.copy(lact)
+    lact_sparse[36:36 + to_remove] = 2
+
+    drug_true_sparse_output = endpoint_benchmark.gen_circ_failure_ep(map, lact_sparse,
+                                                                     drug_true,
+                                                                     drug_true,
+                                                                     drug_true,
+                                                                     drug_true,
+                                                                     drug_true,
+                                                                     drug_true,
+                                                                     drug_true)
+
+    print(lact_sparse)
+    print(drug_true_sparse_output)
+    print(to_remove)
+    print(np.where(drug_true_sparse_output == 0))
+    print(36 + to_remove - STEPS_PER_HOUR)
+    assert np.all(drug_true_sparse_output[:36 + to_remove - STEPS_PER_HOUR] == 1)
+    assert np.all(drug_true_sparse_output[36 + STEPS_PER_HOUR + 1:] == 1)
+    assert np.all(drug_true_sparse_output[36 + to_remove - STEPS_PER_HOUR:36 + STEPS_PER_HOUR] == 0)
