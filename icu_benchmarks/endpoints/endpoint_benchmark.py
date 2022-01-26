@@ -587,7 +587,6 @@ def compute_pao2(current_idx, pao2_col, pao2_meas_cnt, spo2_col, spo2_meas_cnt, 
     return pao2_estimate, pao2_avail
 
 
-# NEEDS TEST
 def compute_fio2(current_idx, current_time, suppox_idx, suppox_time, fio2_col, fio2_meas_cnt,
                  vent_mode_col, vent_status_col, suppox_col, search_window):
     ''' Estimate the current FiO2 value at a grid-point

@@ -8,7 +8,7 @@ import numpy.testing as np_test
 
 from icu_benchmarks.common.constants import STEPS_PER_HOUR, LEVEL1_RATIO_RESP, \
     LEVEL2_RATIO_RESP, LEVEL3_RATIO_RESP, FRACTION_TSH_RESP, FRACTION_TSH_CIRC, \
-    SUPPOX_TO_FIO2, SPO2_NORMAL_VALUE
+    SUPPOX_TO_FIO2, SPO2_NORMAL_VALUE, NIV_VENT_MODE, SUPPOX_MAX_FFILL, AMBIENT_FIO2
 
 from icu_benchmarks.endpoints import endpoint_benchmark
 
@@ -453,6 +453,89 @@ def test_compute_pao2():
     assert avail==0
     
 
+def test_compute_fio2():
+
+    # Build clinical setting
+    search_window=1
+
+    # Direct ventilation
+    vent_status_arr_1=np.array([0,0,0,1,1,1,1,1])
+
+    # No direct ventilation
+    vent_status_arr_2=np.array([0,0,0,0,1,1,1,1])
+    
+    fio2=np.array([87,87,87,89, 91, 92, 93, 90])
+    fio2_meas_cnt=np.array([0,0,0,1,2,3,4,5])
+    vent_mode=np.array([6,6,6,NIV_VENT_MODE,4,3,2,1])
+    suppox_col=np.array([0,0,8.1,8.1,2.5,2.6,2.3,3.2])
+
+    # First case, use FiO2 value directly
+
+    current_idx=3
+    suppox_idx=2
+    abs_time=np.datetime64('2005-02-25T03:30')
+
+    estimate,fio2_avail,fio2_ambient,fio2_suppox=endpoint_benchmark.compute_fio2(current_idx,abs_time,
+                                                                                 suppox_idx,abs_time-np.timedelta64(4,'h'),
+                                                                                 fio2, fio2_meas_cnt, vent_mode,
+                                                                                 vent_status_arr_1,suppox_col,1)
+    gt_estimate=89/100
+    assert fio2_avail==1
+    assert fio2_ambient==0
+    assert fio2_suppox==0
+    assert estimate==gt_estimate
+
+    # Pass with the second vent status arr, should still use the FiO2 because of NIV mode
+    estimate,fio2_avail,fio2_ambient,fio2_suppox = endpoint_benchmark.compute_fio2(current_idx,abs_time,
+                                                                                    suppox_idx,abs_time-np.timedelta64(4,'h'),
+                                                                                   fio2, fio2_meas_cnt, vent_mode,
+                                                                                   vent_status_arr_2,suppox_col,1)
+    assert fio2_avail==1
+    assert fio2_ambient==0
+    assert fio2_suppox==0
+    assert estimate==gt_estimate    
+
+    # Second case, ambient air assumption
+
+    current_idx=1
+    suppox_time=abs_time-np.timedelta64(SUPPOX_MAX_FFILL+4,'h')
+    estimate,fio2_avail,fio2_ambient,fio2_suppox = endpoint_benchmark.compute_fio2(current_idx,abs_time,
+                                                                                   suppox_idx,suppox_time,
+                                                                                   fio2,fio2_meas_cnt,vent_mode,
+                                                                                   vent_status_arr_1,suppox_col,1)
+    gt_estimate=AMBIENT_FIO2
+    assert fio2_avail==0
+    assert fio2_ambient==1
+    assert fio2_suppox==0
+    assert estimate==gt_estimate
+
+    suppox_time=abs_time-np.timedelta64(SUPPOX_MAX_FFILL-1,'h')
+    suppox_idx=-1
+
+    # Check the case for no previous suppox and also no previous FiO2
+    estimate,fio2_avail,fio2_ambient,fio2_suppox = endpoint_benchmark.compute_fio2(current_idx,abs_time,
+                                                                                   suppox_idx,suppox_time,
+                                                                                   fio2, fio2_meas_cnt,vent_mode,
+                                                                                   vent_status_arr_1, suppox_col, 1)
+    assert fio2_avail==0
+    assert fio2_ambient==1
+    assert fio2_suppox==0
+    assert estimate==gt_estimate
+
+    # Third case, supplementary oxygen
+    suppox_idx=2
+    suppox_time=abs_time-np.timedelta64(SUPPOX_MAX_FFILL-1,'h')
+
+    estimate,fio2_avail,fio2_ambient,fio2_suppox= endpoint_benchmark.compute_fio2(current_idx,abs_time,
+                                                                                  suppox_idx,suppox_time,
+                                                                                  fio2, fio2_meas_cnt, vent_mode,
+                                                                                  vent_status_arr_1, suppox_col, 1)
+
+    assert fio2_avail==0
+    assert fio2_ambient==0
+    assert fio2_suppox==1
+    gt_estimate=endpoint_benchmark.suppox_to_fio2(8)/100
+    assert estimate==gt_estimate
 
     
 def test_gen_circ_failure_ep():
