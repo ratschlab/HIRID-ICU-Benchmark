@@ -108,7 +108,7 @@ def test_percentile_smooth():
 
 
 def test_merge_short_vent_gaps():
-    # TO DO: Positions which are not gaps are never modified - smth wrong with this
+
     # gaps of larger length than short_gap_hours are not removed
 
     vent_status_arr_1 = np.array(
@@ -146,7 +146,6 @@ def test_merge_short_vent_gaps():
 
 
 def test_delete_short_vent_events():
-    # TO DO: verify about equal (!)
 
     # Short events shorted than the threshold are indeed deleted
     vent_status_arr_1 = np.array([0, 0, 0, 0, 1, 1, 1, 1, 0, 0])
@@ -172,7 +171,6 @@ def test_delete_short_vent_events():
 
 
 def test_mix_real_est_pao2():
-    # TO DO: The correct closest measurement is found in the first inner loop
 
     pao2_col_1 = np.array([200, 150, 170.1, 200.3])
     pao2_meas_cnt_1 = np.array([1, 4, 5, 6])
