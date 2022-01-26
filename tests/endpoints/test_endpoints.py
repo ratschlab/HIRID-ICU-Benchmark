@@ -7,7 +7,7 @@ import numpy as np
 
 
 from icu_benchmarks.common.constants import STEPS_PER_HOUR, PAO2_MIX_SCALE, LEVEL1_RATIO_RESP, \
-    LEVEL2_RATIO_RESP, LEVEL3_RATIO_RESP, VENT_ETCO2_TSH, FRACTION_TSH_RESP
+    LEVEL2_RATIO_RESP, LEVEL3_RATIO_RESP, VENT_ETCO2_TSH, FRACTION_TSH_RESP, SPO2_NORMAL_VALUE
 from icu_benchmarks.endpoints import endpoint_benchmark
 
 TEST_ROOT = Path(__file__).parent.parent
@@ -39,6 +39,13 @@ def test_kernel_smooth_arr():
     res_2 = endpoint_benchmark.kernel_smooth_arr(input_arr_2, bandwidth_2)
     assert np.allclose(res_2, correct_formula)
 
+
+def test_ellis():
+    spo2_input_arr = np.array([98, 98, 99, np.nan])
+    ellis_exp = endpoint_benchmark.ellis(spo2_input_arr)
+    correct_ellis_exp = np.array([104.1878943, 104.1878943, 131.93953975, 104.1878943])
+
+    assert np.allclose(ellis_exp, correct_ellis_exp)
 
 @pytest.mark.parametrize("pf,vent,peep_status,peep_threshold,event",
                          ((LEVEL1_RATIO_RESP, 1.0, 1.0, 1.0, b"event_1"),
