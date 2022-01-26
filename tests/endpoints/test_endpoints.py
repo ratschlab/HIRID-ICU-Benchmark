@@ -68,9 +68,17 @@ def test_ellis():
 def test_assign_resp_levels_fixed(pf, vent, peep_status, peep_threshold, event):
     # We test individually each level. Edges are tested in other tests
     pf_array = np.ones(64) * pf
+    pf_array_bef=np.copy(pf_array)
+    
     vent_array = np.ones(64) * vent
+    vent_array_bef=np.copy(vent_array)
+    
     peep_status_array = np.ones(64) * peep_status
+    peep_status_array_bef=np.copy(peep_status_array)
+    
     peep_threshold_array = np.ones(64) * peep_threshold
+    peep_threshold_array_bef=np.copy(peep_threshold_array)
+    
     off_set_window = 4
     event_window = 12
     out_array = endpoint_benchmark.assign_resp_levels(pf_array, vent_array,
@@ -79,6 +87,12 @@ def test_assign_resp_levels_fixed(pf, vent, peep_status, peep_threshold, event):
 
     assert np.all(out_array[:-4] == event)
     assert np.all(out_array[-4:] == b'UNKNOWN')
+
+    # Input not corrupted
+    np_test.assert_equal(pf_array,pf_array_bef)
+    np_test.assert_equal(vent_array,vent_array_bef)
+    np_test.assert_equal(peep_status_array, peep_status_array_bef)
+    np_test.assert_equal(peep_threshold_array, peep_threshold_array_bef)
 
     pf_array[:event_window] = np.nan
     out_array = endpoint_benchmark.assign_resp_levels(pf_array, vent_array,
@@ -362,9 +376,16 @@ def test_delete_small_continuous_blocks():
 def test_delete_low_density_hr_gaps():
     hr = np.array([1, 1, 1, 1, 0, 1, 0, 1, 1, 1, 1, 0, 0, 0, 0])
     vent = np.array([1, 1, 1, 0, 0, 0, 0, 1, 1, 0, 1, 1, 0, 0, 1])
+
+    hr_bef=np.copy(hr)
+    vent_bef=np.copy(vent)
+    
     gt = np.array([1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 1, 1, 1, 1, 1])
     out_vent = endpoint_benchmark.delete_low_density_hr_gap(vent, hr)
     assert np.all(out_vent == gt)
+
+    np_test.assert_equal(hr,hr_bef)
+    np_test.assert_equal(vent,vent_bef)
 
 
 def test_gen_circ_failure_ep():

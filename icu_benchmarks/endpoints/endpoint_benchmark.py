@@ -339,31 +339,34 @@ def delete_low_density_hr_gap(vent_status_arr, hr_status_arr):
     in_event = False
     in_gap = False
     gap_idx = -1
+
+    vent_new_arr=np.copy(vent_status_arr)
+    
     for idx in range(len(vent_status_arr)):
 
         # Beginning of new event, not from inside gap
-        if not in_event and not in_gap and vent_status_arr[idx] == 1.0:
+        if not in_event and not in_gap and vent_new_arr[idx] == 1.0:
             in_event = True
 
         # Beginning of potential gap that needs to be closed
-        elif in_event and vent_status_arr[idx] == 0.0:
+        elif in_event and vent_new_arr[idx] == 0.0:
             in_gap = True
             gap_idx = idx
             in_event = False
 
         # The gap is over, re-assign the status of ventilation to merge the gap, enter new event
-        if in_gap and vent_status_arr[idx] == 1.0:
+        if in_gap and vent_new_arr[idx] == 1.0:
 
             hr_sub_arr = hr_status_arr[gap_idx:idx]
 
             # Close the gap if the density of HR is too low in between
             if np.sum(hr_sub_arr) / hr_sub_arr.size <= FRACTION_VENT_HR_GAP:
-                vent_status_arr[gap_idx:idx] = 1.0
+                vent_new_arr[gap_idx:idx] = 1.0
 
             in_gap = False
             in_event = True
 
-    return vent_status_arr
+    return vent_new_arr
 
 
 def ellis(x_orig):
