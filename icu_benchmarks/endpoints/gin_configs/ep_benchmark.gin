@@ -4,13 +4,13 @@ parse_gin_args_endpoints.gin_configs = {
     # ================= INPUT PATHS =======================================================================================================
 
     # Imputed data
-    "imputed_path": "/cluster/work/grlab/clinical/hirid_public/benchmark/imputed_stage_compat_common",
+    "imputed_path": "/cluster/work/grlab/clinical/hirid_public/benchmark/pipeline_runs/runs_20220114_mh_debug/imputation_for_endpoints",
 
     # Location of merged data
-    "merged_h5": "/cluster/work/grlab/clinical/hirid_public/benchmark/merged_stage_v1.1.1_aligned_dtype",
+    "merged_h5": "/cluster/work/grlab/clinical/hirid_public/benchmark/pipeline_runs/run_20220114_mh_debug/merged_stage",
 
     # Location of general data
-    "general_data_table_path": "/cluster/work/grlab/clinical/hirid_public/benchmark/merged_stage_v1.1.1_aligned_dtype/static.parquet",
+    "general_data_table_path": "/cluster/work/grlab/clinical/hirid_public/benchmark/pipeline_runs/runs_20220114_mh_debug/merged_stage/static.parquet",
 
     # ================= OUTPUT PATHS ======================================================================================================
 

@@ -541,7 +541,7 @@ def gen_circ_failure_ep(map_col=None, lactate_col=None, milri_col=None, dobut_co
 
     return circ_status_arr
 
-# NEEDS TEST
+
 def compute_pao2(current_idx, pao2_col, pao2_meas_cnt, spo2_col, spo2_meas_cnt, search_window):
     ''' Estimate the current PaO2 value
 
@@ -822,7 +822,6 @@ def compute_pao2_fio2_estimates(abs_dtime_arr=None, suppox_dtime_arr=None, fio2_
     return out_dict
 
 
-# NEEDS TEST
 def load_relevant_columns(df_pid, var_map):
     """ Loads the relevant columns from the patient stay
     
@@ -888,7 +887,8 @@ def suppox_to_fio2(suppox_val):
     else:
         return SUPPOX_TO_FIO2[suppox_val]
 
-# NEEDS TEST
+
+
 def assemble_out_df(time_col=None, rel_time_col=None, pid_col=None, event_status_arr=None,
                     relabel_arr=None, fio2_avail_arr=None, fio2_suppox_arr=None,
                     fio2_ambient_arr=None, fio2_est_arr=None, pao2_est_arr=None,
@@ -979,6 +979,7 @@ def endpoint_gen_benchmark(configs):
     df_batch = pd.read_parquet(os.path.join(imputed_f, "batch_{}.parquet".format(batch_id)))
 
     logging.info("Loaded imputed data done...")
+    
     cand_raw_batch = glob.glob(os.path.join(merged_f, "part-{}.parquet".format(batch_id)))
     assert (len(cand_raw_batch) == 1)
     pids = list(df_batch.patientid.unique())

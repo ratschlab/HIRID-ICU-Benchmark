@@ -8,7 +8,7 @@ import numpy.testing as np_test
 
 from icu_benchmarks.common.constants import STEPS_PER_HOUR, LEVEL1_RATIO_RESP, \
     LEVEL2_RATIO_RESP, LEVEL3_RATIO_RESP, FRACTION_TSH_RESP, FRACTION_TSH_CIRC, \
-    SUPPOX_TO_FIO2
+    SUPPOX_TO_FIO2, SPO2_NORMAL_VALUE
 
 from icu_benchmarks.endpoints import endpoint_benchmark
 
@@ -406,7 +406,53 @@ def test_suppox_to_fio2():
     assert fio2_out==SUPPOX_TO_FIO2[5]
 
 
+def test_compute_pao2():
+
+    LARGE_VALUE=1000
     
+    # Build clinical setting
+    pao2=np.array([87, 87, 87, 93, 93, 101, 101, 101])
+    pao2_meas_cnt=np.array([1,1,1,2,2,3,3,3])
+    spo2=np.array([97,97,97,93,92,95,94,96])
+    spo2_meas_cnt=np.array([0,0,0,2,4,6,8,10])
+
+    pao2_bef=np.copy(pao2)
+    pao2_meas_cnt_bef=np.copy(pao2_meas_cnt)
+    spo2_bef=np.copy(spo2)
+    spo2_meas_cnt_bef=np.copy(spo2_meas_cnt)
+    
+    search_window=1
+
+    # PaO2 was just measured, use the value directly
+    estimate,avail=endpoint_benchmark.compute_pao2(3,pao2,pao2_meas_cnt,spo2,spo2_meas_cnt,search_window)
+    assert estimate==pao2[3]
+    assert avail==1
+
+    # Input is not corrupted
+    np_test.assert_equal(pao2,pao2_bef)
+    np_test.assert_equal(pao2_meas_cnt,pao2_meas_cnt_bef)
+    np_test.assert_equal(spo2,spo2_bef)
+    np_test.assert_equal(spo2_meas_cnt, spo2_meas_cnt_bef)
+
+    # PaO2 was not just measured but it is in the search window, which is very large
+    estimate,avail=endpoint_benchmark.compute_pao2(3,pao2,pao2_meas_cnt,spo2,spo2_meas_cnt,LARGE_VALUE)
+
+    assert estimate==pao2[3]
+    assert avail==1
+
+    # PaO2 correctly estimated from the last SpO2
+    estimate,avail=endpoint_benchmark.compute_pao2(7, pao2,pao2_meas_cnt,spo2,spo2_meas_cnt,1)
+    gt_estimate=endpoint_benchmark.ellis(np.array([96]))[0]
+    assert estimate==gt_estimate
+    assert avail==0
+
+    # There was no previous SpO2, extreme edge case
+    estimate,avail=endpoint_benchmark.compute_pao2(2,pao2,pao2_meas_cnt,spo2,spo2_meas_cnt,1)
+    gt_estimate=endpoint_benchmark.ellis(np.array([SPO2_NORMAL_VALUE]))[0]
+    assert estimate==gt_estimate
+    assert avail==0
+    
+
 
     
 def test_gen_circ_failure_ep():
