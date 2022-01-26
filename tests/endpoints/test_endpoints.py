@@ -7,7 +7,9 @@ import numpy as np
 import numpy.testing as np_test
 
 from icu_benchmarks.common.constants import STEPS_PER_HOUR, LEVEL1_RATIO_RESP, \
-    LEVEL2_RATIO_RESP, LEVEL3_RATIO_RESP, FRACTION_TSH_RESP, FRACTION_TSH_CIRC
+    LEVEL2_RATIO_RESP, LEVEL3_RATIO_RESP, FRACTION_TSH_RESP, FRACTION_TSH_CIRC, \
+    SUPPOX_TO_FIO2
+
 from icu_benchmarks.endpoints import endpoint_benchmark
 
 TEST_ROOT = Path(__file__).parent.parent
@@ -329,11 +331,17 @@ def test_correct_right_edge_l3():
 
 
 def test_delete_small_continuous_blocks():
+    
     # zero length block
     event_arr_0 = np.array([1, 1, 1, 1, 1, 1, 2, 2, 2, 1, 1, 1, 1, 1])
+    event_arr_0_bef=np.copy(event_arr_0)
+    
     block_threshold_zero = 0
     result_0 = endpoint_benchmark.delete_small_continuous_blocks(event_arr_0, block_threshold_zero)[0]
     assert np.all(event_arr_0 == result_0)
+
+    # input not corrupted
+    np_test.assert_equal(event_arr_0, event_arr_0_bef)
 
     # very big block
     event_arr_big = np.array([1, 1, 1, 1, 1, 1, 2, 2, 2, 1, 1, 1, 1, 1])
@@ -388,11 +396,30 @@ def test_delete_low_density_hr_gaps():
     np_test.assert_equal(vent,vent_bef)
 
 
+def test_suppox_to_fio2():
+    MINS_PER_STEP = 60 // STEPS_PER_HOUR
+    MAX_SUPPOX_KEY = np.array(list(SUPPOX_TO_FIO2.keys())).max()
+    MAX_SUPPOX_TO_FIO2_VAL = SUPPOX_TO_FIO2[MAX_SUPPOX_KEY]    
+    fio2_out=endpoint_benchmark.suppox_to_fio2(MAX_SUPPOX_KEY+1000)
+    assert fio2_out==MAX_SUPPOX_TO_FIO2_VAL
+    fio2_out=endpoint_benchmark.suppox_to_fio2(5)
+    assert fio2_out==SUPPOX_TO_FIO2[5]
+
+
+    
+
+    
 def test_gen_circ_failure_ep():
     map = np.ones(72) * 64
     lact = np.ones(72) * 3
     drug_true = np.ones(72)
     drug_false = np.zeros(72)
+
+    map_bef=np.copy(map)
+    lact_bef=np.copy(lact)
+
+    drug_true_bef=np.copy(drug_true)
+    drug_false_bef=np.copy(drug_false)
 
     # Basic examples
     drug_true_full_output = endpoint_benchmark.gen_circ_failure_ep(map, lact,
@@ -404,6 +431,12 @@ def test_gen_circ_failure_ep():
                                                                    drug_true,
                                                                    drug_true)
     assert np.all(drug_true_full_output == 1)
+
+    np_test.assert_equal(drug_true,drug_true_bef)
+    np_test.assert_equal(drug_false,drug_false_bef)
+    np_test.assert_equal(map,map_bef)
+    np_test.assert_equal(lact,lact_bef)
+    
     drug_false_full_output = endpoint_benchmark.gen_circ_failure_ep(map, lact,
                                                                     drug_false,
                                                                     drug_false,

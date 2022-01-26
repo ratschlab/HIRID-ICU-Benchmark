@@ -541,7 +541,7 @@ def gen_circ_failure_ep(map_col=None, lactate_col=None, milri_col=None, dobut_co
 
     return circ_status_arr
 
-
+# NEEDS TEST
 def compute_pao2(current_idx, pao2_col, pao2_meas_cnt, spo2_col, spo2_meas_cnt, search_window):
     ''' Estimate the current PaO2 value
 
@@ -587,6 +587,7 @@ def compute_pao2(current_idx, pao2_col, pao2_meas_cnt, spo2_col, spo2_meas_cnt, 
     return pao2_estimate, pao2_avail
 
 
+# NEEDS TEST
 def compute_fio2(current_idx, current_time, suppox_idx, suppox_time, fio2_col, fio2_meas_cnt,
                  vent_mode_col, vent_status_col, suppox_col, search_window):
     ''' Estimate the current FiO2 value at a grid-point
@@ -645,7 +646,7 @@ def compute_fio2(current_idx, current_time, suppox_idx, suppox_time, fio2_col, f
 
     return fio2_val, fio2_avail, fio2_ambient, fio2_suppox
 
-
+# NEEDS TEST
 def compute_vent_status(etco2_col, etco2_meas_cnt, peep_col, peep_meas_cnt,
                         hr_meas_cnt, vent_mode_col, tv_col, airway_col, peep_search_window, hr_search_window,
                         vent_vote_threshold, peep_threshold):
@@ -736,6 +737,7 @@ def compute_vent_status(etco2_col, etco2_meas_cnt, peep_col, peep_meas_cnt,
     return vent_status, peep_status, peep_threshold_status, hr_status
 
 
+# NEEDS TEST
 def compute_pao2_fio2_estimates(abs_dtime_arr=None, suppox_dtime_arr=None, fio2_col=None, fio2_meas_cnt=None,
                                 pao2_col=None, pao2_meas_cnt=None, spo2_col=None, spo2_meas_cnt=None, suppox_col=None,
                                 vent_mode_col=None, vent_status_col=None, sz_fio2_window=None,
@@ -820,6 +822,7 @@ def compute_pao2_fio2_estimates(abs_dtime_arr=None, suppox_dtime_arr=None, fio2_
     return out_dict
 
 
+# NEEDS TEST
 def load_relevant_columns(df_pid, var_map):
     """ Loads the relevant columns from the patient stay
     
@@ -885,7 +888,7 @@ def suppox_to_fio2(suppox_val):
     else:
         return SUPPOX_TO_FIO2[suppox_val]
 
-
+# NEEDS TEST
 def assemble_out_df(time_col=None, rel_time_col=None, pid_col=None, event_status_arr=None,
                     relabel_arr=None, fio2_avail_arr=None, fio2_suppox_arr=None,
                     fio2_ambient_arr=None, fio2_est_arr=None, pao2_est_arr=None,
