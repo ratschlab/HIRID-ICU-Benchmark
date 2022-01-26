@@ -460,14 +460,22 @@ def test_compute_fio2():
 
     # Direct ventilation
     vent_status_arr_1=np.array([0,0,0,1,1,1,1,1])
+    vent_status_arr_1_bef=np.copy(vent_status_arr_1)
 
     # No direct ventilation
     vent_status_arr_2=np.array([0,0,0,0,1,1,1,1])
     
     fio2=np.array([87,87,87,89, 91, 92, 93, 90])
+    fio2_bef=np.copy(fio2)
+    
     fio2_meas_cnt=np.array([0,0,0,1,2,3,4,5])
+    fio2_meas_cnt_bef=np.copy(fio2_meas_cnt)
+    
     vent_mode=np.array([6,6,6,NIV_VENT_MODE,4,3,2,1])
+    vent_mode_bef=np.copy(vent_mode)
+    
     suppox_col=np.array([0,0,8.1,8.1,2.5,2.6,2.3,3.2])
+    suppox_col_bef=np.copy(suppox_col)
 
     # First case, use FiO2 value directly
 
@@ -484,6 +492,13 @@ def test_compute_fio2():
     assert fio2_ambient==0
     assert fio2_suppox==0
     assert estimate==gt_estimate
+
+    # input not corrupted
+    np_test.assert_equal(vent_status_arr_1,vent_status_arr_1_bef)
+    np_test.assert_equal(fio2,fio2_bef)
+    np_test.assert_equal(fio2_meas_cnt,fio2_meas_cnt_bef)
+    np_test.assert_equal(vent_mode, vent_mode_bef)
+    np_test.assert_equal(suppox_col, suppox_col_bef)
 
     # Pass with the second vent status arr, should still use the FiO2 because of NIV mode
     estimate,fio2_avail,fio2_ambient,fio2_suppox = endpoint_benchmark.compute_fio2(current_idx,abs_time,
