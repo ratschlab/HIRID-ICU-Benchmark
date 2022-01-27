@@ -25,14 +25,6 @@ from icu_benchmarks.models.train import train_with_gin
 from icu_benchmarks.models.utils import get_bindings_and_params
 from icu_benchmarks.preprocessing import merge
 
-default_endpoints = (MORTALITY_NAME,
-                     CIRC_FAILURE_NAME,
-                     RESP_FAILURE_NAME,
-                     URINE_REG_NAME,
-                     URINE_BINARY_NAME,
-                     PHENOTYPING_NAME,
-                     LOS_NAME)
-
 default_seed = 42
 
 
@@ -75,6 +67,9 @@ def build_parser():
     preprocess_arguments.add_argument('--imputation', dest="imputation",
                                       default='ffill', required=False, type=str,
                                       help="Type of imputation. Default: 'ffill' ")
+    preprocess_arguments.add_argument('--horizon', dest="horizon",
+                                      default=12, required=False, type=int,
+                                      help="Horizon of prediction in hours for failure tasks")
 
     model_arguments = parent_parser.add_argument_group('Model arguments')
     model_arguments.add_argument('-l', '--logdir', dest="logdir",
@@ -295,7 +290,7 @@ def _get_general_data_path(general_data_path, hirid_data_root):
 
 
 def run_preprocessing_pipeline(hirid_data_root, work_dir, var_ref_path, imputation_method,
-                               general_data_path=None, split_path=None, seed=default_seed, nr_workers=1):
+                               general_data_path=None, split_path=None, seed=default_seed, nr_workers=1, horizon=12):
     work_dir.mkdir(exist_ok=True, parents=True)
 
     general_data_path = _get_general_data_path(general_data_path, hirid_data_root)
@@ -316,10 +311,12 @@ def run_preprocessing_pipeline(hirid_data_root, work_dir, var_ref_path, imputati
     imputation_for_endpoints_path = work_dir / 'imputation_for_endpoints'
     endpoints_path = work_dir / 'endpoints'
     common_path = work_dir / 'common_stage'
-    label_path = work_dir / 'labels'
+    label_name = "_".join(['labels', str(horizon)]) + 'h'
+    label_path = work_dir / label_name
 
     features_path = work_dir / 'features_stage'
-    ml_path = work_dir / 'ml_stage' / 'ml_stage.h5'
+    ml_name = 'ml_stage' + '_' + str(horizon) + 'h' + '.h5'
+    ml_path = work_dir / 'ml_stage' / ml_name
 
     run_merge_step(hirid_data_root, var_ref_path, merged_path, nr_workers, extended_general_data_path)
 
@@ -327,8 +324,7 @@ def run_preprocessing_pipeline(hirid_data_root, work_dir, var_ref_path, imputati
 
     if not imputation_for_endpoints_path.exists():
         logging.info("Running imputation step for endpoints")
-        imputation_for_endpoints.impute_for_endpoints(merged_path, extended_general_data_path,
-                                                      imputation_for_endpoints_path, nr_workers=nr_workers)
+        imputation_for_endpoints.impute_for_endpoints(merged_path, imputation_for_endpoints_path, nr_workers=nr_workers)
     else:
         logging.info(f"Data for imputation for endpoints in {imputation_for_endpoints_path} seems to exist, skipping")
 
@@ -348,7 +344,15 @@ def run_preprocessing_pipeline(hirid_data_root, work_dir, var_ref_path, imputati
 
     run_feature_extraction_step(common_path, var_ref_path, features_path, nr_workers)
 
-    run_build_ml(common_path, label_path, features_path, ml_path, var_ref_path, default_endpoints,
+    endpoints = (MORTALITY_NAME,
+                 CIRC_FAILURE_NAME + '_' + str(horizon) + 'Hours',
+                 RESP_FAILURE_NAME + '_' + str(horizon) + 'Hours',
+                 URINE_REG_NAME,
+                 URINE_BINARY_NAME,
+                 PHENOTYPING_NAME,
+                 LOS_NAME)
+
+    run_build_ml(common_path, label_path, features_path, ml_path, var_ref_path, endpoints,
                  imputation_method, seed, split_path)
 
 
@@ -359,12 +363,12 @@ def main(my_args=tuple(sys.argv[1:])):
     logging.basicConfig(format=log_fmt)
     logging.getLogger().setLevel(logging.INFO)
 
-    ## Dispatch
+    # Dispatch
     if args.command == 'preprocess':
         run_preprocessing_pipeline(args.hirid_data_root, args.work_dir, args.var_ref_path,
                                    imputation_method=args.imputation,
                                    split_path=args.split_path,
-                                   seed=args.seed, nr_workers=args.nr_workers)
+                                   seed=args.seed, nr_workers=args.nr_workers, horizon=args.horizon)
 
     if args.command in ['train', 'evaluate']:
         load_weights = args.command == 'evaluate'

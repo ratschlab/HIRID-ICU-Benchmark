@@ -976,9 +976,9 @@ def endpoint_gen_benchmark(batch_id, endpoint_path, imputed_path, merged_path):
 
     cand_raw_batch = glob.glob(os.path.join(merged_path, "part-{}.parquet".format(batch_id)))
     assert (len(cand_raw_batch) == 1)
-    pids = list(df_batch.patientid.unique())
+    pids = list(df_batch[PID].unique())
 
-    logging.info("Number of patients in batch: {}".format(len(df_batch.patientid.unique())))
+    logging.info("Number of patients in batch: {}".format(len(df_batch[PID].unique())))
     out_fp = os.path.join(endpoint_path, "batch_{}.parquet".format(batch_id))
 
     out_dfs = []
@@ -987,7 +987,7 @@ def endpoint_gen_benchmark(batch_id, endpoint_path, imputed_path, merged_path):
 
         print("Patient {}/{}".format(pidx + 1, len(pids)))
 
-        df_pid = df_batch[df_batch["patientid"] == pid]
+        df_pid = df_batch[df_batch[PID] == pid]
 
         if df_pid.shape[0] == 0:
             logging.info("WARNING: No input data for PID: {}".format(pid))

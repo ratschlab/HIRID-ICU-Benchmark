@@ -1,5 +1,3 @@
-
-
 # Common constants
 VARID = 'variableid'
 PHARMAID = 'pharmaid'
@@ -23,16 +21,57 @@ URINE_REG_NAME = 'Dynamic_UrineOutput_2Hours_Reg'
 URINE_BINARY_NAME = 'Dynamic_UrineOutput_2Hours_Binary'
 PHENOTYPING_NAME = 'Phenotyping_APACHEGroup'
 LOS_NAME = 'Remaining_LOS_Reg'
+HR_CUM_NAME = 'vm1_IMPUTED_STATUS_CUM_COUNT'
+URINE_CUM_NAME = 'vm24_IMPUTED_STATUS_CUM_COUNT'
+APACHE_2_NAME = 'APACHE II Group'
+APACHE_4_NAME = 'APACHE IV Group'
+DISCHARGE_NAME = 'discharge_status'
+APACHE_2_MAP = {98: 1,
+                99: 2,
+                100: 3,
+                101: 4,
+                102: 6,
+                103: 7,
+                104: 8,
+                105: 9,
+                106: 6,
+                107: 11,
+                108: 12,
+                109: 13,
+                110: 14,
+                111: 15,
+                112: 16,
+                113: 17,
+                114: 17}
+APACHE_4_MAP = {190: 1,
+                191: 2,
+                192: 3,
+                193: 4,
+                197: 6,
+                194: 7,
+                195: 8,
+                196: 9,
+                198: 6,
+                199: 11,
+                201: 12,
+                200: 13,
+                202: 14,
+                203: 15,
+                204: 16,
+                205: 17,
+                206: 6}
 
 # Endpoint specific constants
+MAX_IMPUTE_DAYS = 31
+IMPUTATION_PERIOD_SEC = 300
 PAO2_MIX_SCALE = 57 ** 2
 BINARY_TSH_URINE = 0.5
 LEVEL1_RATIO_RESP = 300
 LEVEL2_RATIO_RESP = 200
 LEVEL3_RATIO_RESP = 100
-FRACTION_TSH_RESP = 2/3
-FRACTION_TSH_CIRC = 2/3
-FRACTION_VENT_HR_GAP = 1/2
+FRACTION_TSH_RESP = 2 / 3
+FRACTION_TSH_CIRC = 2 / 3
+FRACTION_VENT_HR_GAP = 1 / 2
 SPO2_NORMAL_VALUE = 98
 VENT_ETCO2_TSH = 0.5
 NIV_VENT_MODE = 4.0
@@ -88,16 +127,30 @@ VAR_IDS_EP = {"FiO2": "vm58",
               "SuppOx": "vm23",
               "SuppFiO2_1": "vm309",
               "SuppFiO2_2": "vm310",
-              "PressSupport": "vm211", "MinuteVolume": "vm215", "GCS_Antwort":
-              "vm25", "GCS_Motorik": "vm26", "GCS_Augen": "vm27", "SpO2":
-              "vm20", "RRate": "vm22", "SaO2": "vm141", "pH": "vm138", "etCO2":
-              "vm21", "Total_Bilirubin": "vm162", "Platelets": "vm185",
-              "Creatinine": "vm156", "Urine_per_hour": "vm276", "Urine_cum":
-              "vm24", "HR": "vm1", "TV": "vm61", "servoi_mode": "vm60",
-              "Airway": "vm66", "vent_mode": "vm60", "int_state": "vm312",
+              "PressSupport": "vm211",
+              "MinuteVolume": "vm215",
+              "GCS_Antwort": "vm25",
+              "GCS_Motorik": "vm26",
+              "GCS_Augen": "vm27",
+              "SpO2": "vm20",
+              "RRate": "vm22",
+              "SaO2": "vm141",
+              "pH": "vm138",
+              "etCO2": "vm21",
+              "Total_Bilirubin": "vm162",
+              "Platelets": "vm185",
+              "Creatinine": "vm156",
+              "Urine_per_hour": "vm276",
+              "Urine_cum": "vm24",
+              "HR": "vm1",
+              "TV": "vm61",
+              "servoi_mode": "vm60",
+              "Airway": "vm66",
+              "vent_mode": "vm60",
+              "int_state": "vm312",
               "trach": "vm313",
               "MAP": ["vm5"],
-              "Lactate": ["vm136","vm146"],
+              "Lactate": ["vm136", "vm146"],
               "Dobutamine": ["pm41"],
               "Milrinone": ["pm42"],
               "Levosimendan": ["pm43"],
@@ -106,4 +159,3 @@ VAR_IDS_EP = {"FiO2": "vm58",
               "Epinephrine": ["pm40"],
               "Vasopressin": ["pm45"],
               "Weight": ["vm131"]}
-

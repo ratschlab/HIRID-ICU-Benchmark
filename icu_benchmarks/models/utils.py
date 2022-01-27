@@ -20,7 +20,7 @@ def load_model_state(filepath, model, optimizer=None):
     model.load_state_dict(state['model'])
     if optimizer is not None:
         optimizer.load_state_dict(state['optimizer'])
-    logging.info('Loaded model and optimizer saved at epoch {} .'.format(state['epoch']))
+    logging.info('Loaded model and optimizer')
 
 
 def save_config_file(log_dir):
