@@ -6,8 +6,8 @@ import logging
 import math
 import os
 import os.path
-import pickle
 import sys
+import gin
 
 import numpy as np
 import pandas as pd
@@ -17,12 +17,12 @@ from icu_benchmarks.common.constants import STEPS_PER_HOUR, LEVEL1_RATIO_RESP, L
     FRACTION_TSH_CIRC, FRACTION_TSH_RESP, DATETIME, PID, REL_DATETIME, SPO2_NORMAL_VALUE, NIV_VENT_MODE, \
     SUPPOX_TO_FIO2, PAO2_MIX_SCALE, ABGA_WINDOW, SUPPOX_MAX_FFILL, AMBIENT_FIO2, EVENT_SEARCH_WINDOW, \
     FI02_SEARCH_WINDOW, PA02_SEARCH_WINDOW, PEEP_SEARCH_WINDOW, HR_SEARCH_WINDOW, VENT_VOTE_TSH, PEEP_TSH, \
-    FRACTION_VENT_HR_GAP
+    FRACTION_VENT_HR_GAP, SPO2_PERCENTILE, SPO2_MIN_WINDOW, SHORT_GAP_TSH, SHORT_EVENT_TSH, PAO2_BW, \
+    PF_MERGE_THRESHOLD, OFFSET_RESP, VAR_IDS_EP
 
 MINS_PER_STEP = 60 // STEPS_PER_HOUR
 MAX_SUPPOX_KEY = np.array(list(SUPPOX_TO_FIO2.keys())).max()
 MAX_SUPPOX_TO_FIO2_VAL = SUPPOX_TO_FIO2[MAX_SUPPOX_KEY]
-
 
 def mix_real_est_pao2(pao2_col, pao2_meas_cnt, pao2_est_arr):
     """ Mix real PaO2 measurement and PaO2 estimates using a Gaussian kernel
@@ -340,8 +340,8 @@ def delete_low_density_hr_gap(vent_status_arr, hr_status_arr):
     in_gap = False
     gap_idx = -1
 
-    vent_new_arr=np.copy(vent_status_arr)
-    
+    vent_new_arr = np.copy(vent_status_arr)
+
     for idx in range(len(vent_status_arr)):
 
         # Beginning of new event, not from inside gap
@@ -378,7 +378,7 @@ def ellis(x_orig):
 
     RETURNS: Estimated PaO2 values for each time-step
     """
-    x_new=np.copy(x_orig)
+    x_new = np.copy(x_orig)
     x_new[np.isnan(x_new)] = SPO2_NORMAL_VALUE  # Normal value assumption
     x = x_new / 100
     x[x == 1] = 0.999
@@ -645,6 +645,7 @@ def compute_fio2(current_idx, current_time, suppox_idx, suppox_time, fio2_col, f
 
     return fio2_val, fio2_avail, fio2_ambient, fio2_suppox
 
+
 # NEEDS TEST
 def compute_vent_status(etco2_col, etco2_meas_cnt, peep_col, peep_meas_cnt,
                         hr_meas_cnt, vent_mode_col, tv_col, airway_col, peep_search_window, hr_search_window,
@@ -887,7 +888,6 @@ def suppox_to_fio2(suppox_val):
         return SUPPOX_TO_FIO2[suppox_val]
 
 
-
 def assemble_out_df(time_col=None, rel_time_col=None, pid_col=None, event_status_arr=None,
                     relabel_arr=None, fio2_avail_arr=None, fio2_suppox_arr=None,
                     fio2_ambient_arr=None, fio2_est_arr=None, pao2_est_arr=None,
@@ -951,40 +951,35 @@ def assemble_out_df(time_col=None, rel_time_col=None, pid_col=None, event_status
     return df_out
 
 
-def endpoint_gen_benchmark(configs):
+def endpoint_gen_benchmark(batch_id, endpoint_path, imputed_path, merged_path):
     """ Endpoint generation function for one batch of patients
 
     INPUTS:
     configs: Configuration file dictionary
     """
 
-    var_map = configs["VAR_IDS"]
-    imputed_f = configs["imputed_path"]
-    merged_f = os.path.join(configs["merged_h5"])
-    out_folder = os.path.join(configs["endpoint_path"])
+    var_map = VAR_IDS_EP
 
-    if not os.path.exists(out_folder):
-        os.mkdir(out_folder)
-
-    batch_id = configs["batch_idx"]
+    if not os.path.exists(endpoint_path):
+        os.mkdir(endpoint_path)
 
     logging.info("Generating endpoints for batch {}".format(batch_id))
-    batch_fpath = os.path.join(imputed_f, "batch_{}.parquet".format(batch_id))
+    batch_fpath = os.path.join(imputed_path, "batch_{}.parquet".format(batch_id))
 
     if not os.path.exists(batch_fpath):
         logging.info("WARNING: Input file does not exist, exiting...")
         sys.exit(1)
 
-    df_batch = pd.read_parquet(os.path.join(imputed_f, "batch_{}.parquet".format(batch_id)))
+    df_batch = pd.read_parquet(os.path.join(imputed_path, "batch_{}.parquet".format(batch_id)))
 
     logging.info("Loaded imputed data done...")
-    
-    cand_raw_batch = glob.glob(os.path.join(merged_f, "part-{}.parquet".format(batch_id)))
+
+    cand_raw_batch = glob.glob(os.path.join(merged_path, "part-{}.parquet".format(batch_id)))
     assert (len(cand_raw_batch) == 1)
     pids = list(df_batch.patientid.unique())
 
     logging.info("Number of patients in batch: {}".format(len(df_batch.patientid.unique())))
-    out_fp = os.path.join(out_folder, "batch_{}.parquet".format(batch_id))
+    out_fp = os.path.join(endpoint_path, "batch_{}.parquet".format(batch_id))
 
     out_dfs = []
 
@@ -1014,11 +1009,8 @@ def endpoint_gen_benchmark(configs):
         # Load patient columns from data-frame
         pat_cols = load_relevant_columns(df_pid, var_map)
 
-        if configs["presmooth_spo2"]:
-            spo2_col = percentile_smooth(pat_cols["spo2"], configs["spo2_smooth_percentile"],
-                                         configs["spo2_smooth_window_size_mins"])
-        else:
-            spo2_col = pat_cols["spo2"]
+        spo2_col = percentile_smooth(pat_cols["spo2"], SPO2_PERCENTILE,
+                                     SPO2_MIN_WINDOW)
 
         # Label each point in the 30 minute window with ventilation
         vent_status_arr, peep_status, peep_threshold_status, hr_status = compute_vent_status(pat_cols['etco2'],
@@ -1034,13 +1026,11 @@ def endpoint_gen_benchmark(configs):
                                                                                              VENT_VOTE_TSH,
                                                                                              PEEP_TSH)
 
-        if configs["detect_hr_gaps"]:
-            vent_status_arr = delete_low_density_hr_gap(vent_status_arr, hr_status)
-        if configs["merge_short_vent_gaps"]:
-            vent_status_arr = merge_short_vent_gaps(vent_status_arr, configs["short_gap_hours"])
+        vent_status_arr = delete_low_density_hr_gap(vent_status_arr, hr_status)
 
-        if configs["delete_short_vent_events"]:
-            vent_status_arr = delete_short_vent_events(vent_status_arr, configs["short_event_hours"])
+        vent_status_arr = merge_short_vent_gaps(vent_status_arr, SHORT_GAP_TSH)
+
+        vent_status_arr = delete_short_vent_events(vent_status_arr, SHORT_EVENT_TSH)
 
         # Estimate the FiO2/PaO2 values at indiviual time points
         est_out_dict = compute_pao2_fio2_estimates(abs_dtime_arr=pat_cols["abs_dtime"],
@@ -1063,42 +1053,31 @@ def endpoint_gen_benchmark(configs):
         fio2_ambient_arr = est_out_dict["fio2_ambient"]
 
         # Smooth individual components of the P/F ratio estimate
-        if configs["kernel_smooth_estimate_pao2"]:
-            pao2_est_arr = kernel_smooth_arr(pao2_est_arr, bandwidth=configs["smoothing_bandwidth"])
-
+        pao2_est_arr = kernel_smooth_arr(pao2_est_arr, bandwidth=PAO2_BW)
         # Convex combination of the estimate
-        if configs["mix_real_estimated_pao2"]:
-            pao2_est_arr = mix_real_est_pao2(pat_cols["pao2"], pat_cols["pao2_meas_cnt"], pao2_est_arr)
-
-        if configs["kernel_smooth_estimate_fio2"]:
-            fio2_est_arr = kernel_smooth_arr(fio2_est_arr, bandwidth=configs["smoothing_bandwidth"])
+        pao2_est_arr = mix_real_est_pao2(pat_cols["pao2"], pat_cols["pao2_meas_cnt"], pao2_est_arr)
 
         ratio_arr = np.divide(pao2_est_arr, fio2_est_arr)
-
-        # Post-smooth Horowitz index
-        if configs["post_smooth_pf_ratio"]:
-            ratio_arr = kernel_smooth_arr(ratio_arr, bandwidth=configs["post_smoothing_bandwidth"])
 
         resp_status_arr = assign_resp_levels(pf_event_est_arr=ratio_arr,
                                              vent_status_arr=vent_status_arr,
                                              peep_status_arr=peep_status,
                                              sz_window=EVENT_SEARCH_WINDOW,
                                              peep_threshold_arr=peep_threshold_status,
-                                             offset_back_windows=configs["offset_back_windows"])
+                                             offset_back_windows=OFFSET_RESP)
         # Re-traverse the array and correct the right edges of events
         resp_status_arr = correct_right_edge_l0(event_status_arr=resp_status_arr, pf_event_est_arr=ratio_arr,
-                                                offset_back_windows=configs["offset_back_windows"])
+                                                offset_back_windows=OFFSET_RESP)
         resp_status_arr = correct_right_edge_l1(event_status_arr=resp_status_arr, pf_event_est_arr=ratio_arr,
-                                                offset_back_windows=configs["offset_back_windows"])
+                                                offset_back_windows=OFFSET_RESP)
         resp_status_arr = correct_right_edge_l2(event_status_arr=resp_status_arr, pf_event_est_arr=ratio_arr,
-                                                offset_back_windows=configs["offset_back_windows"])
+                                                offset_back_windows=OFFSET_RESP)
         resp_status_arr = correct_right_edge_l3(event_status_arr=resp_status_arr, pf_event_est_arr=ratio_arr,
-                                                offset_back_windows=configs["offset_back_windows"])
+                                                offset_back_windows=OFFSET_RESP)
 
         # Traverse the array and delete short gap
         resp_status_arr, relabel_arr = delete_small_continuous_blocks(resp_status_arr,
-                                                                      block_threshold=configs[
-                                                                          "pf_event_merge_threshold"])
+                                                                      block_threshold=PF_MERGE_THRESHOLD)
 
         circ_status_arr = gen_circ_failure_ep(map_col=pat_cols["map"], lactate_col=pat_cols["lactate"],
                                               milri_col=pat_cols["milri"], dobut_col=pat_cols["dobut"],
