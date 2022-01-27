@@ -1,8 +1,3 @@
-"""
-Imputation routines for different variable types in the ICU Bern data-set, we distinguish between the
-cases 'event' (endpoint), measured variable and pharma variable which have to be treated differently.
-"""
-
 import numpy as np
 
 
@@ -28,9 +23,7 @@ def empty_nan(sz):
 """ ONLY FORWARD FILLING imputation schema"""
 
 
-def impute_forward_fill_simple(raw_ts, raw_values, timegrid_pred, global_mean, grid_period, fill_interval_secs=np.inf,
-                               var_type=None, variable_id=None, weight_imputed_col=None, static_height=None,
-                               personal_bmi=None):
+def impute_forward_fill_simple(raw_ts, raw_values, timegrid_pred, global_mean, fill_interval_secs=np.inf):
     """
     Simple forward filling algorithm used in the respiratory failure endpoints
     """
@@ -80,5 +73,3 @@ def impute_forward_fill_simple(raw_ts, raw_values, timegrid_pred, global_mean, g
         time_to_last_ms[idx[0]] = real_offset
 
     return (pred_values, cum_count_ms, time_to_last_ms)
-
-
