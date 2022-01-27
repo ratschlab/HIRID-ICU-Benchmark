@@ -1,14 +1,36 @@
-# HiRID-ICU-Benchmark
+![Figure](docs/figures/bench_description.png)
+# HiRID-ICU-Benchmark (HiB)
 
-This repository contains the needed resources to build the HIRID-ICU-Benchmark dataset for which the manuscript can be found [here](https://openreview.net/forum?id=SnC9rUeqiqd).
+This repository contains the needed resources to build the HIRID-ICU-Benchmark dataset which was presented at NeurIPS Datasets and Benchmarks Track 2021. The manuscript can be found [here](https://arxiv.org/abs/2111.08536).
+
+## Updates (27/01/2022)
+- We removed dependencies on `gin` config files in the preprocessing part on the pipeline.
+- We extended unit testing of all subparts of the preprocessing.
+## Citing our work 
+
+If you use our HiB or the code from the repository, please cite our work as follow:
+```
+@inproceedings{
+    yeche2021hib,
+    title={HiRID-ICU-Benchmark — A Comprehensive Machine Learning Benchmark on High-resolution ICU Data},
+    author={Y{\`e}che, Hugo and Kuznetsova, Rita and Zimmermann, Marc and H{\"u}ser, Matthias and Lyu, Xinrui and Faltys, Martin and Ratsch, Gunnar},
+    booktitle={Thirty-fifth Conference on Neural Information Processing Systems Datasets and Benchmarks Track},
+    year={2021},
+    url={https://arxiv.org/abs/2111.08536}
+}
+```
+
+**When you cite our work, please also cite [HiRID original paper](https://physionet.org/content/hirid/1.1.1/)**
+
+
+## Key Resources
 
 We first introduce key resources to better understand the structure and specificity of the data.
 We then detail the different features of our pipeline and how to use them as shown in the below figure.
 
 ![Figure](docs/figures/Detailed-pipe-benchmark.png)
-
-## Key Resources
 We build our work on previously released data, models, and metrics. To help users which might be unfamiliar with them we provide in this section some related documentation.
+
 ### HiRID data
 We based our benchmark on a recent dataset in intensive care called HiRID.
 It is a freely accessible critical care dataset containing data from more than 33,000 patient admissions to the Department of Intensive Care Medicine, Bern University Hospital, Switzerland (ICU) from January 2008 to June 2016.
