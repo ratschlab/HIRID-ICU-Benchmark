@@ -3,6 +3,8 @@ import gc
 import numpy as np
 import pandas as pd
 
+from icu_benchmarks.common.constants import PID, DATETIME
+
 
 def drop_duplicates_pharma(df):
     """
@@ -95,14 +97,14 @@ def process_single_infusion(df, acting_period):
 
 
 def convert_cumul_value_to_rate(df, cumul_urine_id_lst, general_table):
-    pid = df.iloc[0].patientid
+    pid = df.iloc[0][PID]
     short_gap = 5 / 60
 
     rec_adm_time = general_table.loc[pid].admissiontime
     # if the first HR measuremet time is earlier than recorded admission time, then we estimated
     # the "true" admission time to be the earlier of these two time points.
     if df[df.variableid == 200]["value"].notnull().sum() > 0:
-        hr_first_meas_time = df.loc[df[df.variableid == 200]["value"].notnull().index[0], "datetime"]
+        hr_first_meas_time = df.loc[df[df.variableid == 200]["value"].notnull().index[0], DATETIME]
         esti_adm_time = min(rec_adm_time, hr_first_meas_time)
     else:
         esti_adm_time = rec_adm_time
@@ -115,24 +117,26 @@ def convert_cumul_value_to_rate(df, cumul_urine_id_lst, general_table):
         for vid in df_urine.variableid.unique():
             df_tmp = df_urine[df_urine.variableid == vid]  # table of a single urine variable
 
-            index_pre_general_table = df_tmp.index[df_tmp.datetime < esti_adm_time - np.timedelta64(15 * 60 + 30,
-                                                                                                    "s")]  # number of records before general_admission time
+            index_pre_general_table = df_tmp.index[df_tmp[DATETIME] < esti_adm_time - np.timedelta64(15 * 60 + 30,
+                                                                                                     "s")]
+            # number of records before general_admission time
             if len(index_pre_general_table) == 0:
                 pass
             elif len(index_pre_general_table) == 1:
-                # if there's one record before general_admission, reset datetime from system reset time 12pm to the general_admission time
-                index_pre_general_table = df_tmp.index[df_tmp.datetime < esti_adm_time]
-                df.loc[index_pre_general_table[0], 'datetime'] = esti_adm_time
+                # if there's one record before general_admission,
+                # reset datetime from system reset time 12pm to the general_admission time
+                index_pre_general_table = df_tmp.index[df_tmp[DATETIME] < esti_adm_time]
+                df.loc[index_pre_general_table[0], DATETIME] = esti_adm_time
             else:
-                index_pre_general_table = df_tmp.index[df_tmp.datetime < esti_adm_time]
+                index_pre_general_table = df_tmp.index[df_tmp[DATETIME] < esti_adm_time]
                 df.drop(index_pre_general_table[:-1], inplace=True)
-                df.loc[index_pre_general_table[-1], 'datetime'] = esti_adm_time
+                df.loc[index_pre_general_table[-1], DATETIME] = esti_adm_time
 
             df_tmp = df[df.variableid == vid]
-            if df_tmp.duplicated(["datetime"]).sum() == 0:
+            if df_tmp.duplicated([DATETIME]).sum() == 0:
                 pass
             else:
-                df.drop(df_tmp.index[df_tmp.duplicated(["datetime"])], inplace=True)
+                df.drop(df_tmp.index[df_tmp.duplicated([DATETIME])], inplace=True)
 
             # delete urine record if therre's only one left
             if (df.variableid == vid).sum() < 2:
@@ -142,17 +146,16 @@ def convert_cumul_value_to_rate(df, cumul_urine_id_lst, general_table):
             # compute the cumulative values over the entire icu stay
             df_tmp = df[df.variableid == vid]
             t_reset = df_tmp[(df_tmp["value"].diff() < 0) | (
-                    df_tmp.index == df_tmp.index[0])].datetime  # reset time for the cumulative counting
-            idx_not_reset = df_tmp[(df_tmp["value"].diff() >= 0) & (df_tmp.index != df_tmp.index[0])].index
+                    df_tmp.index == df_tmp.index[0])][DATETIME]  # reset time for the cumulative counting
             for i in np.arange(1, len(t_reset)):
-                tmp = df_tmp[df_tmp.datetime >= t_reset.iloc[i]]
+                tmp = df_tmp[df_tmp[DATETIME] >= t_reset.iloc[i]]
                 if i < len(t_reset) - 1:
-                    tmp = tmp[tmp.datetime < t_reset.iloc[i + 1]]
-                df.loc[tmp.index, 'value'] += df.loc[df_tmp.index[df_tmp.datetime < t_reset.iloc[i]][-1], 'value']
+                    tmp = tmp[tmp[DATETIME] < t_reset.iloc[i + 1]]
+                df.loc[tmp.index, 'value'] += df.loc[df_tmp.index[df_tmp[DATETIME] < t_reset.iloc[i]][-1], 'value']
 
             # drop the time point with time difference from the previous time point that is smaller than half an hour
             df_tmp = df[df.variableid == vid]
-            tdiff = (df_tmp.datetime.diff().iloc[1:] / np.timedelta64(3600, 's'))
+            tdiff = (df_tmp[DATETIME].diff().iloc[1:] / np.timedelta64(3600, 's'))
             if (tdiff < short_gap).sum() > 0:
                 df.drop(df_tmp.index[1:][tdiff.values < short_gap], inplace=True)
 
@@ -177,14 +180,8 @@ def convert_cumul_value_to_rate(df, cumul_urine_id_lst, general_table):
             elif len(df_tmp) == 1:
                 continue
             else:
-                tdiff = (df_tmp.datetime.diff() / np.timedelta64(3600, 's'))
+                tdiff = (df_tmp[DATETIME].diff() / np.timedelta64(3600, 's'))
                 df.loc[df_tmp.index[1:], 'value'] = (df_tmp["value"].diff().iloc[1:] / tdiff.iloc[1:]).values
-                #                 logging.info(tdiff.loc[df.loc[df_tmp.index,'value']>1e+4]*np.timedelta64(3600, 's'))
-                #             df.loc[df_tmp.index[0],'value'] = df.loc[df_tmp.index[1],'value']
                 df.loc[df_tmp.index[0], 'value'] = 0
-
-        for vid in df_urine.variableid.unique():
-            df_tmp = df[df.variableid == vid]
-        #             df.drop(df_tmp.index[df_tmp['value'] > 1e+6], inplace=True)
 
         return df
