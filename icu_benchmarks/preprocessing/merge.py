@@ -29,7 +29,7 @@ def _merge_duplicate_measurements(tmp, stddev_dict):
         ret['value'] = tmp[VALUE].mean()
         return ret
 
-    ret['datetime'] = np.nan  # mark for removal
+    ret[DATETIME] = np.nan  # mark for removal
     return ret
 
 
@@ -43,9 +43,9 @@ def drop_duplicates_non_pharma(df, stddev_dict):
         df_ret = df
     else:
         df_dedup = (df_dup.reset_index().
-                   groupby([DATETIME, VARID]).
-                   apply(_merge_duplicate_measurements, stddev_dict=stddev_dict)
-                   )
+                    groupby([DATETIME, VARID]).
+                    apply(_merge_duplicate_measurements, stddev_dict=stddev_dict)
+                    )
 
         df_dedup = df_dedup[~df_dedup[DATETIME].isna()].set_index('index')
         df_ret = pd.concat([df_dedup, df_non_dup]).sort_values([DATETIME, VARID])
@@ -63,20 +63,23 @@ def drop_out_of_range_values(df, varref):
     bound_cols = [VARREF_LOWERBOUND, VARREF_UPPERBOUND]
 
     df_with_bounds = df.merge(varref[bound_cols], left_on=VARID, right_index=True, how='inner')
-    df_filtered = df_with_bounds.query(f'{VARREF_LOWERBOUND}.isnull() or {VARREF_UPPERBOUND}.isnull() or ({VARREF_LOWERBOUND} <= value and value <= {VARREF_UPPERBOUND})', engine='python')
+    df_filtered = df_with_bounds.query(
+        f'{VARREF_LOWERBOUND}.isnull() or {VARREF_UPPERBOUND}.isnull() or ({VARREF_LOWERBOUND} <= value and value <= {VARREF_UPPERBOUND})',
+        engine='python')
 
     return df_filtered.drop(columns=bound_cols)
 
 
 def aggregate_cols(wide_observ, varref):
-    metavar_varid_dict = {m: [f"v{vid}" for vid in vars] for (m, vars) in varref.reset_index().groupby('metavariableid')['variableid']}
+    metavar_varid_dict = {m: [f"v{vid}" for vid in vars] for (m, vars) in
+                          varref.reset_index().groupby('metavariableid')['variableid']}
 
     metavar_cols = {}
     for vmid, varid_cols in metavar_varid_dict.items():
         varid_cols_avail = list(set(varid_cols).intersection(set(wide_observ.columns)))
 
         if len(varid_cols_avail) > 1:
-            c = wide_observ.loc[:, varid_cols_avail].sum(axis=1, min_count=1)
+            c = wide_observ.loc[:, varid_cols_avail].median(axis=1, numeric_only=True, skipna=True)
         elif len(varid_cols_avail) == 1:
             c = wide_observ.loc[:, varid_cols_avail[0]]
         else:
@@ -98,7 +101,7 @@ def transform_obs_table_fn(observ: pd.DataFrame, lst_vmid: List[int], lst_cumul_
 
     observ = drop_out_of_range_values(observ, varref)
 
-    stddev_dict = { v : std for (v, std) in varref["standard_deviation"].items() }
+    stddev_dict = {v: std for (v, std) in varref["standard_deviation"].items()}
     observ = drop_duplicates_non_pharma(observ, stddev_dict)
 
     if observ[VARID].isin(lst_cumul_vid).sum() > 0:
@@ -110,13 +113,14 @@ def transform_obs_table_fn(observ: pd.DataFrame, lst_vmid: List[int], lst_cumul_
         return pd.DataFrame()
 
     wide_observ = (pd.pivot_table(observ, values=VALUE, columns=VARID, index=DATETIME).
-                        sort_index())
+                   sort_index())
 
     wide_aggregated = aggregate_cols(wide_observ, varref)
 
-    binary_vmids = ["vm%d"%x for x in varref[varref.metavariableunit.apply(lambda x: x=="Binary")].metavariableid.values]
+    binary_vmids = ["vm%d" % x for x in
+                    varref[varref.metavariableunit.apply(lambda x: x == "Binary")].metavariableid.values]
     for col in binary_vmids:
-        wide_aggregated.loc[:,col] = wide_aggregated[col].apply(lambda x: x if np.isnan(x) else float(x!=0))
+        wide_aggregated.loc[:, col] = wide_aggregated[col].apply(lambda x: x if np.isnan(x) else float(x != 0))
 
     return wide_aggregated
 
@@ -139,7 +143,6 @@ def transform_pharma_table_fn(pharma: pd.DataFrame, pharmaref, lst_pmid):
             infusion_rate = []
             for infusionid in pharma[pharma.pharmaid == pharmaid].infusionid.unique():
                 tmp_pharma = pharma[(pharma.pharmaid == pharmaid) & (pharma.infusionid == infusionid)].copy()
-                #                     tmp_pharma.drop(tmp_pharma[tmp_pharma.drop(columns=["enteredentryat"]).duplicated(keep="last")].index, inplace=True)
                 infusion_rate.append(process_single_infusion(tmp_pharma, pharma_acting_period))
             infusion_rate = pd.concat(infusion_rate, axis=1).sort_index()
             infusion_rate = infusion_rate.sum(axis=1).to_frame(name="p%d" % pharmaid)
@@ -151,11 +154,14 @@ def transform_pharma_table_fn(pharma: pd.DataFrame, pharmaref, lst_pmid):
                 wide_pharma.loc[:, "pm%d" % pmid] = np.nan
             else:
                 if pharmaref[pharmaref.metavariableid == pmid].unitconversionfactor.notnull().sum() > 0:
-                    unitconverters = [pharmaref[(pharmaref.metavariableid == pmid)&(
-                        pharmaref.pharmaid == int(c[1:]))].iloc[0].unitconversionfactor for c in wide_pharma.columns[
-                             np.isin(wide_pharma.columns, cols)]]
-                    wide_pharma.loc[:, "pm%d" % pmid] = ( wide_pharma[
-                        wide_pharma.columns[np.isin(wide_pharma.columns, cols)]] * unitconverters).sum(axis=1)
+                    unitconverters = [pharmaref[(pharmaref.metavariableid == pmid) & (
+                            pharmaref.pharmaid == int(c[1:]))].iloc[0].unitconversionfactor for c in
+                                      wide_pharma.columns[
+                                          np.isin(wide_pharma.columns, cols)]]
+                    wide_pharma.loc[:, "pm%d" % pmid] = (wide_pharma[
+                                                             wide_pharma.columns[np.isin(wide_pharma.columns,
+                                                                                         cols)]] * unitconverters).sum(
+                        axis=1)
                 else:
                     wide_pharma.loc[:, "pm%d" % pmid] = wide_pharma[
                         wide_pharma.columns[np.isin(wide_pharma.columns, cols)]].sum(axis=1)
@@ -163,32 +169,31 @@ def transform_pharma_table_fn(pharma: pd.DataFrame, pharmaref, lst_pmid):
                                     wide_pharma[wide_pharma.columns[np.isin(wide_pharma.columns, cols)]].notnull().sum(
                                         axis=1) == 0], "pm%d" % pmid] = np.nan
                 wide_pharma.drop(wide_pharma.columns[np.isin(wide_pharma.columns, cols)], axis=1, inplace=True)
-                
-        binary_pmids = ["pm%d"%x for x in pharmaref[pharmaref.metavariableunit.apply(lambda x: x=="Binary")].metavariableid.values]
+
+        binary_pmids = ["pm%d" % x for x in
+                        pharmaref[pharmaref.metavariableunit.apply(lambda x: x == "Binary")].metavariableid.values]
         for col in binary_pmids:
-            wide_pharma.loc[:,col] = wide_pharma[col].apply(lambda x: x if np.isnan(x) else float(x!=0))
+            wide_pharma.loc[:, col] = wide_pharma[col].apply(lambda x: x if np.isnan(x) else float(x != 0))
 
         return wide_pharma
 
 
 def length_of_stay_filtering(df, admission_time):
-    df = df.drop(df.index[df.datetime < admission_time])
-
     rec_adm_time = admission_time
     if df.vm1.notnull().sum() > 0:
         hr_first_meas_time = df.loc[df[df.vm1.notnull()].index[0], DATETIME]
-        esti_adm_time = min(rec_adm_time, hr_first_meas_time)
+        esti_adm_time = max(rec_adm_time, hr_first_meas_time)
         esti_disc_time = df.loc[df[df.vm1.notnull()].index[-1], DATETIME]
     else:
         esti_adm_time = rec_adm_time
         esti_disc_time = None
 
-    df = df.drop(df.index[df.datetime < esti_adm_time])
+    df = df.drop(df.index[df[DATETIME] < esti_adm_time])
     if esti_disc_time is not None:
-        df = df.drop(df.index[df.datetime > esti_disc_time])
+        df = df.drop(df.index[df[DATETIME] > esti_disc_time])
 
     if not df.empty:
-        los = (df.iloc[-1].datetime - df.iloc[0].datetime) / np.timedelta64(24, "h")
+        los = (df.iloc[-1][DATETIME] - df.iloc[0][DATETIME]) / np.timedelta64(24, "h")
         assert (los < 32)
     return df
 
@@ -211,9 +216,9 @@ def combine_obs_and_pharma_tables(dfs: Sequence[Mapping[int, pd.DataFrame]], col
             continue
 
         df_pid[PID] = pid
-        df_pid = df_pid.reset_index().rename(columns={"index": DATETIME, "givenat":DATETIME})
+        df_pid = df_pid.reset_index().rename(columns={"index": DATETIME, "givenat": DATETIME})
         df_pid.loc[:, list(set(columns).difference(set(df_pid.columns)))] = np.nan
-        df_pid = df_pid[columns] # reorder cols
+        df_pid = df_pid[columns]  # reorder cols
 
         assert ((df_pid.iloc[:, 2:].notnull().sum(axis=1) == 0).sum() == 0)
 
@@ -225,12 +230,13 @@ def combine_obs_and_pharma_tables(dfs: Sequence[Mapping[int, pd.DataFrame]], col
 
     # explicitly setting type to be consistent across chunks (important to process using pyspark)
     df[PID] = df[PID].astype('int32')
-    df.iloc[:, 2:]= df.iloc[:, 2:].astype('float64')
+    df.iloc[:, 2:] = df.iloc[:, 2:].astype('float64')
 
     return df
 
 
-def merge_tables(observation_tables_path: Path, pharma_path: Path, general_data_path: Path, varref_path: Path, output: Path, workers:int = 1):
+def merge_tables(observation_tables_path: Path, pharma_path: Path, general_data_path: Path,
+                 varref_path: Path, output: Path, workers: int = 1):
     """
     entry point for preprocessing the data as published on physionet
     """
@@ -258,15 +264,17 @@ def merge_tables(observation_tables_path: Path, pharma_path: Path, general_data_
     lst_cumul_vid = varref[
         varref.variablename.apply(lambda x: "/c" in x.lower() or "cumul" in x.lower())].index.tolist()
 
-    obs_per_pat = functools.partial(transform_obs_table_fn, lst_vmid=lst_vmid, lst_cumul_vid=lst_cumul_vid, varref=varref, general_table=general_table)
-    transform_pharma_table_fn_per_pat = functools.partial(transform_pharma_table_fn, pharmaref=pharmaref, lst_pmid=lst_pmid)
+    obs_per_pat = functools.partial(transform_obs_table_fn, lst_vmid=lst_vmid, lst_cumul_vid=lst_cumul_vid,
+                                    varref=varref, general_table=general_table)
+    transform_pharma_table_fn_per_pat = functools.partial(transform_pharma_table_fn, pharmaref=pharmaref,
+                                                          lst_pmid=lst_pmid)
 
     simple_read_parquet = lambda path: pd.read_parquet(path)
-    simple_write_parquet = lambda df, part: df.to_parquet(output/part, index=False)
+    simple_write_parquet = lambda df, part: df.to_parquet(output / part, index=False)
 
     logging.info(f"start processing using {workers} worker")
 
-    output_cols = [PID, DATETIME] + [f"vm{vid}" for vid in sorted(varref['metavariableid'].unique())] +\
+    output_cols = [PID, DATETIME] + [f"vm{vid}" for vid in sorted(varref['metavariableid'].unique())] + \
                   [f"pm{vid}" for vid in sorted(pharmaref['metavariableid'].unique())]
 
     admission_times = {pid: adm_time for (pid, adm_time) in general_table['admissiontime'].items()}
