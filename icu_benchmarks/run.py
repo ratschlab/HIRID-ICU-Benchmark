@@ -30,7 +30,7 @@ default_seed = 42
 
 def build_parser():
     parser = argparse.ArgumentParser(
-        description='Self supervised pretraining lib for ICU data')
+        description='Benchmark lib for processing and evaluation of deep learning models on HiRID ICU data')
 
     parent_parser = argparse.ArgumentParser(add_help=False)
 
