@@ -26,6 +26,6 @@ dependencies:
      # taking gin from master branch, as latest 0.4.0 release does not include the fix https://github.com/google/gin-config/issues/31
      - git+https://github.com/google/gin-config.git@cadd4fee4d64cede4e6234dbffd40d9d6de2518d
      - pytest==6.2.3
-     - pathos==0.2.7
+     - pathos==0.2.9
      - routing-transformer==1.5.1
      - scikit-fda==0.5
