@@ -4,7 +4,7 @@ import numpy as np
 import pandas as pd
 
 from icu_benchmarks.common.constants import PID, DATETIME, INSTANTANEOUS_STATE, START_STATE, STOP_STATE, \
-    HEART_RATE_VID, SHORT_TIME_GAP, 1H_TDELTA
+    HEART_RATE_VID, SHORT_TIME_GAP, TDELTA_1H
 
 
 def drop_duplicates_pharma(df):
@@ -153,7 +153,7 @@ def convert_cumul_value_to_rate(df, cumul_urine_id_lst, general_table):
 
             # drop the time point with time difference from the previous time point that is smaller than 5 minute
             df_tmp = df[df.variableid == vid]
-            tdiff = (df_tmp[DATETIME].diff().iloc[1:] / 1H_TDELTA)
+            tdiff = (df_tmp[DATETIME].diff().iloc[1:] / TDELTA_1H)
             if (tdiff < SHORT_GAP).sum() > 0:
                 df.drop(df_tmp.index[1:][tdiff.values < SHORT_GAP], inplace=True)
 
@@ -178,7 +178,7 @@ def convert_cumul_value_to_rate(df, cumul_urine_id_lst, general_table):
             elif len(df_tmp) == 1:
                 continue
             else:
-                tdiff = (df_tmp[DATETIME].diff() / 1H_TDELTA)
+                tdiff = (df_tmp[DATETIME].diff() / TDELTA_1H)
                 df.loc[df_tmp.index[1:], 'value'] = (df_tmp["value"].diff().iloc[1:] / tdiff.iloc[1:]).values
                 df.loc[df_tmp.index[0], 'value'] = 0
 
