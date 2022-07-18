@@ -24,7 +24,6 @@ START_STATE = 524
 STOP_STATE = 776
 HEART_RATE_VID = 200
 SHORT_TIME_GAP = 5 / 60
-1H_TDELTA = np.timedelta64(1, 'h')
 
 # Label specific constants
 MORTALITY_NAME = 'Mortality_At24Hours'
