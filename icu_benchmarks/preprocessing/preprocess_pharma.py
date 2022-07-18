@@ -3,7 +3,8 @@ import gc
 import numpy as np
 import pandas as pd
 
-from icu_benchmarks.common.constants import PID, DATETIME
+from icu_benchmarks.common.constants import PID, DATETIME, INSTANTANEOUS_STATE, START_STATE, STOP_STATE, \
+    HEART_RATE_VID, SHORT_TIME_GAP, 1H_TDELTA
 
 
 def drop_duplicates_pharma(df):
@@ -15,45 +16,43 @@ def drop_duplicates_pharma(df):
     for pharmaid in df_dup.pharmaid.unique():
         for infusionid in df_dup[df_dup.pharmaid == pharmaid].infusionid.unique():
             tmp = df_dup[(df_dup.pharmaid == pharmaid) & (df_dup.infusionid == infusionid)]
-            if len(tmp.recordstatus.unique()) == 1 and tmp.recordstatus.unique()[0] == 780:
+            if len(tmp.recordstatus.unique()) == 1 and tmp.recordstatus.unique()[0] == INSTANTANEOUS_STATE:
                 for i in range(len(tmp)):
                     df.loc[tmp.index[i], "infusionid"] = "%s_%s" % (int(df.loc[tmp.index[i], "infusionid"]), i)
                 # tmp = df[(df.pharmaid == pharmaid) & (
                 #     df.infusionid.apply(lambda x: "%s_" % (infusionid) in x if type(x) == str else False))]
-            elif len(tmp.recordstatus.unique()) == 1 and tmp.recordstatus.unique()[0] == 776:
+            elif len(tmp.recordstatus.unique()) == 1 and tmp.recordstatus.unique()[0] == STOP_STATE:
                 if (tmp.givendose != 0).sum() == 1:
-                    df.drop(tmp.index[tmp.givendose == 0], inplace=True)
+                    df.drop(tmp.index[tmp.give`ndose == 0], inplace=True)
                 else:
                     df.drop(tmp.index[:-1], inplace=True)
-            elif len(tmp.recordstatus.unique()) == 2 and 776 in tmp.recordstatus.unique():
-                df.drop(tmp.index[tmp.recordstatus != 776], inplace=True)
+            elif len(tmp.recordstatus.unique()) == 2 and STOP_STATE in tmp.recordstatus.unique():
+                df.drop(tmp.index[tmp.recordstatus != STOP_STATE], inplace=True)
             else:
                 raise Exception("Debug needed")
     return df
 
 
-def process_status780(df, acting_period):
+def process_instantaneous_state(df, acting_period):
     '''
     Convert the infusion channel with status injection/tablet to "infusion-like" channel.
     '''
     infusionid = int(df.iloc[0].infusionid)
-    start_code = 524
-    stop_code = 776
 
     df.set_index("givenat", inplace=True)
-    drug_giventime_780 = df.index.tolist()
+    drug_giventime_INSTANTANEOUS_STATE = df.index.tolist()
 
     df_new = []
-    for i, dt in enumerate(drug_giventime_780):
+    for i, dt in enumerate(drug_giventime_INSTANTANEOUS_STATE):
         tmp = df.loc[[dt]].copy()
 
-        endtime_780 = dt + np.timedelta64(acting_period, "m")
-        tmp.loc[endtime_780, "givendose"] = tmp.loc[dt, "givendose"]
-        tmp.loc[endtime_780, "recordstatus"] = stop_code
-        tmp.loc[endtime_780, "infusionid"] = "%d_%d" % (infusionid, i)
+        endtime_instantaneous_drug = dt + np.timedelta64(acting_period, "m")
+        tmp.loc[endtime_instantaneous_drug, "givendose"] = tmp.loc[dt, "givendose"]
+        tmp.loc[endtime_instantaneous_drug, "recordstatus"] = STOP_STATE
+        tmp.loc[endtime_instantaneous_drug, "infusionid"] = "%d_%d" % (infusionid, i)
 
         tmp.loc[dt, "givendose"] = 0
-        tmp.loc[dt, "recordstatus"] = start_code
+        tmp.loc[dt, "recordstatus"] = START_STATE
         tmp.loc[dt, "infusionid"] = "%d_%d" % (infusionid, i)
 
         df_new.append(tmp.reset_index())
@@ -66,8 +65,8 @@ def process_single_infusion(df, acting_period):
     Convert given dose from a single infusion channel to rate
     '''
     infusionid = int(df.iloc[0].infusionid)
-    if len(df.recordstatus.unique()) == 1 and df.recordstatus.unique()[0] == 780:
-        df = process_status780(df, acting_period)
+    if len(df.recordstatus.unique()) == 1 and df.recordstatus.unique()[0] == INSTANTANEOUS_STATE:
+        df = process_instantaneous_state(df, acting_period)
 
     df_rate = []
     for sub_infusionid in df.infusionid.unique():
@@ -83,7 +82,7 @@ def process_single_infusion(df, acting_period):
             tmp.sort_index(inplace=True)
             tmp.reset_index(inplace=True)
         try:
-            assert ((tmp.recordstatus == 776).sum() == 1)
+            assert ((tmp.recordstatus == STOP_STATE).sum() == 1)
         except AssertionError:
             pass
         tmp.loc[:, "rate"] = 0
@@ -98,13 +97,12 @@ def process_single_infusion(df, acting_period):
 
 def convert_cumul_value_to_rate(df, cumul_urine_id_lst, general_table):
     pid = df.iloc[0][PID]
-    short_gap = 5 / 60
 
     rec_adm_time = general_table.loc[pid].admissiontime
     # if the first HR measuremet time is earlier than recorded admission time, then we estimated
     # the "true" admission time to be the earlier of these two time points.
-    if df[df.variableid == 200]["value"].notnull().sum() > 0:
-        hr_first_meas_time = df.loc[df[df.variableid == 200]["value"].notnull().index[0], DATETIME]
+    if df[df.variableid == HEART_RATE_VID]["value"].notnull().sum() > 0:
+        hr_first_meas_time = df.loc[df[df.variableid == HEART_RATE_VID]["value"].notnull().index[0], DATETIME]
         esti_adm_time = min(rec_adm_time, hr_first_meas_time)
     else:
         esti_adm_time = rec_adm_time
@@ -153,11 +151,11 @@ def convert_cumul_value_to_rate(df, cumul_urine_id_lst, general_table):
                     tmp = tmp[tmp[DATETIME] < t_reset.iloc[i + 1]]
                 df.loc[tmp.index, 'value'] += df.loc[df_tmp.index[df_tmp[DATETIME] < t_reset.iloc[i]][-1], 'value']
 
-            # drop the time point with time difference from the previous time point that is smaller than half an hour
+            # drop the time point with time difference from the previous time point that is smaller than 5 minute
             df_tmp = df[df.variableid == vid]
-            tdiff = (df_tmp[DATETIME].diff().iloc[1:] / np.timedelta64(3600, 's'))
-            if (tdiff < short_gap).sum() > 0:
-                df.drop(df_tmp.index[1:][tdiff.values < short_gap], inplace=True)
+            tdiff = (df_tmp[DATETIME].diff().iloc[1:] / 1H_TDELTA)
+            if (tdiff < SHORT_GAP).sum() > 0:
+                df.drop(df_tmp.index[1:][tdiff.values < SHORT_GAP], inplace=True)
 
             if (df.variableid == vid).sum() < 2:
                 df.drop(df.index[df.variableid == vid], inplace=True)
@@ -180,7 +178,7 @@ def convert_cumul_value_to_rate(df, cumul_urine_id_lst, general_table):
             elif len(df_tmp) == 1:
                 continue
             else:
-                tdiff = (df_tmp[DATETIME].diff() / np.timedelta64(3600, 's'))
+                tdiff = (df_tmp[DATETIME].diff() / 1H_TDELTA)
                 df.loc[df_tmp.index[1:], 'value'] = (df_tmp["value"].diff().iloc[1:] / tdiff.iloc[1:]).values
                 df.loc[df_tmp.index[0], 'value'] = 0
 

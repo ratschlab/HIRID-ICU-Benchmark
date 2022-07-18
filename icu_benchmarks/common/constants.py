@@ -13,6 +13,19 @@ VARREF_LOWERBOUND = 'lowerbound'
 VARREF_UPPERBOUND = 'upperbound'
 STEPS_PER_HOUR = 12
 
+# preprocessing specific constants
+INVALID_PHARMA_RECORDSTATUS  = [522,
+                                526,
+                                546,
+                                782]
+INSTANTANEOUS_STATE = 780
+PSEUDO_INSTANTANEOUS_STATE = 544
+START_STATE = 524
+STOP_STATE = 776
+HEART_RATE_VID = 200
+SHORT_TIME_GAP = 5 / 60
+1H_TDELTA = np.timedelta64(1, 'h')
+
 # Label specific constants
 MORTALITY_NAME = 'Mortality_At24Hours'
 CIRC_FAILURE_NAME = 'Dynamic_CircFailure'

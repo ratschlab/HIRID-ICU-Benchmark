@@ -7,7 +7,8 @@ import numpy as np
 import pandas as pd
 
 from icu_benchmarks.common import lookups, processing
-from icu_benchmarks.common.constants import VARREF_LOWERBOUND, VARREF_UPPERBOUND, PID, VARID, DATETIME, VALUE
+from icu_benchmarks.common.constants import VARREF_LOWERBOUND, VARREF_UPPERBOUND, PID, VARID, DATETIME, VALUE, \
+    INVALID_PHARMA_RECORDSTATUS, INSTANTANEOUS_STATE, PSEUDO_INSTANTANEOUS_STATE
 from icu_benchmarks.common.datasets import Dataset
 from icu_benchmarks.preprocessing.preprocess_pharma import convert_cumul_value_to_rate, drop_duplicates_pharma, \
     process_single_infusion
@@ -129,9 +130,9 @@ def transform_pharma_table_fn(pharma: pd.DataFrame, pharmaref, lst_pmid):
     pharma_ids = set(pharmaref['pharmaid'].unique())
     pharma = pharma.loc[pharma['pharmaid'].isin(pharma_ids)].copy()
 
-    pharma.drop(pharma.index[pharma.recordstatus.isin([522, 526, 546, 782])], inplace=True)
+    pharma.drop(pharma.index[pharma.recordstatus.isin(INVALID_PHARMA_RECORDSTATUS)], inplace=True)
     pharma.sort_values(["pharmaid", "givenat", "enteredentryat"], inplace=True)
-    pharma.loc[:, "recordstatus"] = pharma.recordstatus.replace(544, 780)
+    pharma.loc[:, "recordstatus"] = pharma.recordstatus.replace(PSEUDO_INSTANTANEOUS_STATE, INSTANTANEOUS_STATE)
     pharma = drop_duplicates_pharma(pharma)
 
     if pharma.empty:
