@@ -1,29 +1,36 @@
 # Common constants
+METAVAR_ID = 'metavariableid'
+METAVAR_UNIT = 'metavariableunit'
 VARID = 'variableid'
 PHARMAID = 'pharmaid'
 INFID = 'infusionid'
 PHARMA_DATETIME = 'givenat'
+PHARMA_ENTERTIME = 'enteredentryat'
 PHARMA_STATUS = 'recordstatus'
 PHARMA_VAL = 'givendose'
+PHARMA_RATE = 'rate'
+UNITCONVERT_FACTOR = 'unitconversionfactor'
 PID = 'patientid'
 VALUE = 'value'
 DATETIME = 'datetime'
+ENTERTIME = 'entertime'
 REL_DATETIME = 'rel_datetime'
 VARREF_LOWERBOUND = 'lowerbound'
 VARREF_UPPERBOUND = 'upperbound'
 STEPS_PER_HOUR = 12
 
 # preprocessing specific constants
-INVALID_PHARMA_RECORDSTATUS  = [522,
-                                526,
-                                546,
-                                782]
+INVALID_PHARMA_STATUS  = [522,
+                          526,
+                          546,
+                          782]
 INSTANTANEOUS_STATE = 780
 PSEUDO_INSTANTANEOUS_STATE = 544
 START_STATE = 524
 STOP_STATE = 776
-HEART_RATE_VID = 200
-SHORT_TIME_GAP = 5 / 60
+HR_VARID = 200
+HR_METAVAR_ID = 'vm1'
+SHORT_GAP = 5 / 60
 
 # Label specific constants
 MORTALITY_NAME = 'Mortality_At24Hours'
