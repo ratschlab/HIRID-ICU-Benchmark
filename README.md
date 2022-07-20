@@ -92,7 +92,7 @@ icu-benchmarks preprocess --hirid-data-root [path to unpacked parquet files as d
                           --nr-workers 8
 ```
 
-The above command requires about 6GB of RAM per core and in total approximately 30GB of disk space.
+The above command requires about 16GB of RAM per core and in total approximately 30GB of disk space. We are currently working on reducing the memory required per worker.
 
 
 ### Run Training
