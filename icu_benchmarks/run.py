@@ -182,8 +182,8 @@ def run_merge_step(hirid_path, var_ref_path, merged_path, nr_workers, static_dat
     if not Dataset(merged_path).is_done():
         logging.info("Running merge step...")
         merge.merge_tables(
-            hirid_path / 'observation_tables' if not part_nr else hirid_path / 'observation_tables' / f'part-{part_nr}.parquet',
-            hirid_path / 'pharma_records' if not part_nr else hirid_path / 'pharma_records' / f'part-{part_nr}.parquet',
+            hirid_path / 'observation_tables' / 'parquet' if not part_nr else hirid_path / 'observation_tables' / 'parquet' / f'part-{part_nr}.parquet',
+            hirid_path / 'pharma_records' / 'parquet' if not part_nr else hirid_path / 'pharma_records' / 'parquet' / f'part-{part_nr}.parquet',
             static_data_path,
             var_ref_path,
             merged_path,
@@ -300,7 +300,7 @@ def run_preprocessing_pipeline(hirid_data_root, work_dir, var_ref_path, imputati
     if not extended_general_data_path.exists():
         logging.info(f"Generating extended general table in {extended_general_data_path}")
 
-        extended_general_table_generation.generate_extended_general_table(hirid_data_root / 'observation_tables',
+        extended_general_table_generation.generate_extended_general_table(hirid_data_root / 'observation_tables' / 'parquet',
                                                                           general_data_path,
                                                                           extended_general_data_path)
     else:
