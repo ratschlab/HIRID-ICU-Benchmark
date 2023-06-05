@@ -15,7 +15,7 @@ def drop_duplicates_pharma(df, pharma_datetime_field):
     for pharmaid in df_dup[PHARMAID].unique():
         for infusionid in df_dup[df_dup[PHARMAID] == pharmaid][INFID].unique():
             tmp = df_dup[(df_dup[PHARMAID] == pharmaid) & (df_dup[INFID] == infusionid)]
-            if pharma_datetime_field==pharma_datetime_field:
+            if pharma_datetime_field==PHARMA_DATETIME:
                 if len(tmp[PHARMA_STATUS].unique()) == 1 and tmp[PHARMA_STATUS].unique()[0] == INSTANTANEOUS_STATE:
                     for i in range(len(tmp)):
                         df.loc[tmp.index[i], INFID] = "%s_%s" % (int(df.loc[tmp.index[i], INFID]), i)
