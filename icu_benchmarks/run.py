@@ -70,6 +70,10 @@ def build_parser():
     preprocess_arguments.add_argument('--horizon', dest="horizon",
                                       default=12, required=False, type=int,
                                       help="Horizon of prediction in hours for failure tasks")
+    preprocess_arguments.add_argument('--record-time-type', dest="record_time_type",
+                                      default="sampletime", required=False, type=str,
+                                      choices=["sampletime", "entertime"],
+                                      help="the timestamp type to use as the record time")
 
     model_arguments = parent_parser.add_argument_group('Model arguments')
     model_arguments.add_argument('-l', '--logdir', dest="logdir",
@@ -187,7 +191,8 @@ def run_merge_step(hirid_path, var_ref_path, merged_path, nr_workers, static_dat
             static_data_path,
             var_ref_path,
             merged_path,
-            nr_workers
+            nr_workers,
+            record_time_type
         )
     else:
         logging.info(f"Skipping merging, as outputdata seems to exist in {merged_path}")
