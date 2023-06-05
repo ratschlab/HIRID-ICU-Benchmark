@@ -6,7 +6,7 @@ import pandas as pd
 from icu_benchmarks.common.constants import PID, DATETIME, INSTANTANEOUS_STATE, START_STATE, STOP_STATE, \
     HR_VARID, PHARMAID, INFID, PHARMA_DATETIME, PHARMA_RATE, PHARMA_VAL, VARID, VALUE, SHORT_GAP, PHARMA_STATUS
 
-def drop_duplicates_pharma(df):
+def drop_duplicates_pharma(df, datetime_type='sampletime'):
     """
     df: long-format dataframe of a patient
     varref: variable reference table that contain the mean and standard deviation of values for a subset of variables
@@ -15,20 +15,27 @@ def drop_duplicates_pharma(df):
     for pharmaid in df_dup[PHARMAID].unique():
         for infusionid in df_dup[df_dup[PHARMAID] == pharmaid][INFID].unique():
             tmp = df_dup[(df_dup[PHARMAID] == pharmaid) & (df_dup[INFID] == infusionid)]
-            if len(tmp[PHARMA_STATUS].unique()) == 1 and tmp[PHARMA_STATUS].unique()[0] == INSTANTANEOUS_STATE:
-                for i in range(len(tmp)):
-                    df.loc[tmp.index[i], INFID] = "%s_%s" % (int(df.loc[tmp.index[i], INFID]), i)
-                # tmp = df[(df[PHARMAID] == pharmaid) & (
-                #     df[INFID].apply(lambda x: "%s_" % (infusionid) in x if type(x) == str else False))]
-            elif len(tmp[PHARMA_STATUS].unique()) == 1 and tmp[PHARMA_STATUS].unique()[0] == STOP_STATE:
-                if (tmp[PHARMA_VAL] != 0).sum() == 1:
-                    df.drop(tmp.index[tmp[PHARMA_VAL] == 0], inplace=True)
+            if datetime_type='sampletime':
+                if len(tmp[PHARMA_STATUS].unique()) == 1 and tmp[PHARMA_STATUS].unique()[0] == INSTANTANEOUS_STATE:
+                    for i in range(len(tmp)):
+                        df.loc[tmp.index[i], INFID] = "%s_%s" % (int(df.loc[tmp.index[i], INFID]), i)
+                    # tmp = df[(df[PHARMAID] == pharmaid) & (
+                    #     df[INFID].apply(lambda x: "%s_" % (infusionid) in x if type(x) == str else False))]
+                elif len(tmp[PHARMA_STATUS].unique()) == 1 and tmp[PHARMA_STATUS].unique()[0] == STOP_STATE:
+                    if (tmp[PHARMA_VAL] != 0).sum() == 1:
+                        df.drop(tmp.index[tmp[PHARMA_VAL] == 0], inplace=True)
+                    else:
+                        df.drop(tmp.index[:-1], inplace=True)
+                elif len(tmp[PHARMA_STATUS].unique()) == 2 and STOP_STATE in tmp[PHARMA_STATUS].unique():
+                    df.drop(tmp.index[tmp[PHARMA_STATUS] != STOP_STATE], inplace=True)
                 else:
-                    df.drop(tmp.index[:-1], inplace=True)
-            elif len(tmp[PHARMA_STATUS].unique()) == 2 and STOP_STATE in tmp[PHARMA_STATUS].unique():
-                df.drop(tmp.index[tmp[PHARMA_STATUS] != STOP_STATE], inplace=True)
+                    raise Exception("Debug needed")
             else:
-                raise Exception("Debug needed")
+                if len(tmp) == 2:
+                    df.loc[tmp.index[1], PHARMA_DATETIME] = df.loc[tmp.index[0], PHARMA_DATETIME] + np.timedelta64(1,'m')
+                else:
+                    df.loc[tmp.index[-1], PHARMA_VAL] = tmp[PHARMA_VAL].sum()
+                    df.drop(tmp.index[:-1], inplace=True)
     return df
 
 
