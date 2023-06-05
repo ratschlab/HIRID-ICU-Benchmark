@@ -239,7 +239,7 @@ def combine_obs_and_pharma_tables(dfs: Sequence[Mapping[int, pd.DataFrame]], col
 
 
 def merge_tables(observation_tables_path: Path, pharma_path: Path, general_data_path: Path,
-                 varref_path: Path, output: Path, workers: int = 1, record_time_type):
+                 varref_path: Path, output: Path, workers: int = 1, record_time_type: expression = 'sampletime'):
     """
     entry point for preprocessing the data as published on physionet
     """
