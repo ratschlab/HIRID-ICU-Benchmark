@@ -178,12 +178,15 @@ def build_parser():
 
 def run_merge_step(hirid_path, var_ref_path, merged_path, nr_workers, static_data_path=None, part_nr=None):
     static_data_path = Path(static_data_path) if static_data_path else hirid_path / 'general_table'
-
+    observation_tables_path = hirid_path / 'observation_tables'
+    pharma_records_path = hirid_path / 'pharma_records' / 'parquet'
+    if 'parquet' in os.listdir(observation_tables_path):
+        observation_tables_path = observation_tables_path / 'parquet'
     if not Dataset(merged_path).is_done():
         logging.info("Running merge step...")
         merge.merge_tables(
-            hirid_path / 'observation_tables' / 'parquet' if not part_nr else hirid_path / 'observation_tables' / 'parquet' / f'part-{part_nr}.parquet',
-            hirid_path / 'pharma_records' / 'parquet' if not part_nr else hirid_path / 'pharma_records' / 'parquet' / f'part-{part_nr}.parquet',
+            observation_tables_path if not part_nr else observation_tables_path / f'part-{part_nr}.parquet',
+            pharma_records_path if not part_nr else pharma_records_path / f'part-{part_nr}.parquet',
             static_data_path,
             var_ref_path,
             merged_path,
@@ -296,11 +299,14 @@ def run_preprocessing_pipeline(hirid_data_root, work_dir, var_ref_path, imputati
     general_data_path = _get_general_data_path(general_data_path, hirid_data_root)
 
     extended_general_data_path = work_dir / 'general_table_extended.parquet'
+    observation_tables_path = hirid_data_root / 'observation_tables'
+    if 'parquet' in os.listdir(observation_tables_path):
+        observation_tables_path = observation_tables_path / 'parquet'
 
     if not extended_general_data_path.exists():
         logging.info(f"Generating extended general table in {extended_general_data_path}")
 
-        extended_general_table_generation.generate_extended_general_table(hirid_data_root / 'observation_tables' / 'parquet',
+        extended_general_table_generation.generate_extended_general_table(observation_tables_path,
                                                                           general_data_path,
                                                                           extended_general_data_path)
     else:
