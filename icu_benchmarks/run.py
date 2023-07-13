@@ -179,9 +179,11 @@ def build_parser():
 def run_merge_step(hirid_path, var_ref_path, merged_path, nr_workers, static_data_path=None, part_nr=None):
     static_data_path = Path(static_data_path) if static_data_path else hirid_path / 'general_table'
     observation_tables_path = hirid_path / 'observation_tables'
-    pharma_records_path = hirid_path / 'pharma_records' / 'parquet'
+    pharma_records_path = hirid_path / 'pharma_records'
     if 'parquet' in os.listdir(observation_tables_path):
         observation_tables_path = observation_tables_path / 'parquet'
+    if 'parquet' in os.listdir(pharma_records_path):
+        pharma_records_path = pharma_records_path / 'parquet'
     if not Dataset(merged_path).is_done():
         logging.info("Running merge step...")
         merge.merge_tables(
